@@ -1,0 +1,463 @@
+body {
+    background: #FFFFFF;
+    min-height: 100vh;
+    margin: 0;
+}
+
+.explanation-container p {
+    color: #2d0000;
+    font-family: "Google Sans Flex", sans-serif;
+    font-optical-sizing: auto;
+    font-weight: 600;
+    font-style: normal;
+    font-variation-settings:
+    "slnt" 0,
+    "wdth" 76,
+    "GRAD" 0,
+    "ROND" 100;
+    font-size: 20px;
+    line-height: 1;
+    letter-spacing: 0.2px;
+}
+
+.search-bar {
+    background: #FFFFFF;
+    border: 1px solid #e0e0e0;
+    border-radius: 35px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    margin: -40px auto 2rem auto;
+    width: calc(100% - 40px); /* Maintain side spacing on mobile */
+    max-width: 810px; /* Match inner width of header (850 - 40 padding) */
+    box-sizing: border-box;
+    padding: 15px 25px;
+    position: relative; /* Ensure stacking context */
+    z-index: 1; /* Place above gradient */
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.search-icon {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+}
+
+.search-input {
+    border: none;
+    background: transparent;
+    flex: 1;
+    font-family: "Google Sans Flex", sans-serif;
+    font-size: 18px;
+    color: #2d0000;
+    outline: none;
+    padding: 0;
+}
+
+.search-input::placeholder {
+    color: #a0a0a0;
+}
+
+.gradient-bg {
+    position: relative;
+    /* top: 0; left: 0; removed for relative flow */
+    width: 100%;
+    /* height: 50vh; Removed fixed height to hug content */
+    height: auto;
+    min-height: 120px; /* Minimum height for look */
+    background: linear-gradient(
+        #deabff 4%,
+        #ff011e 48%,
+        #ffa275 76%,
+        #ffffff 100%
+    );
+    z-index: 0; /* Place behind search bar */
+}
+
+/* Header Styles from Figma */
+.header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    padding: 30px 20px 80px 20px; /* Top, Side, Bottom padding (extra bottom for curve overlap visual impact) */
+    box-sizing: border-box;
+    flex-wrap: wrap; /* Allow wrapping on small screens */
+    gap: 10px; /* Gap for when they wrap */
+    max-width: 850px;
+    margin: 0 auto; /* Center on desktop */
+}
+
+.button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 40px;
+    position: relative;
+    overflow: hidden;
+    /* flex-shrink: 0; Removed to avoid overflow */
+    border: none;
+    font-family: inherit;
+    text-decoration: none; /* Remove underline for links */
+    cursor: pointer;
+    transition: all 0.3s ease;
+    z-index: 1;
+}
+
+/* Common Hover Circle Effect */
+/* Hover Circle Effect for Right Button */
+.button-right::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 200%; /* Ensure it covers the whole button */
+    padding-bottom: 200%; /* Aspect ratio 1:1 */
+    border-radius: 50%;
+    background-color: currentColor; /* Will inherit from button specific color */
+    transform: translate(-50%, -50%) scale(0);
+    transition: transform 0.4s ease-out;
+    z-index: -1;
+}
+
+.button-right:hover::before {
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.button-left {
+    height: 58px;
+    gap: 10px;
+    background: transparent;
+    color: #2d0000; /* Default text color */
+}
+
+/* Instagram Hover Color (removed) */
+
+.button-right {
+    background-color: #2d0000;
+    padding: 4px 25px;
+    color: white;
+}
+
+/* Adhérent Hover Color */
+.button-right::before {
+    background-color: #FFFAF3;
+}
+
+.button-right:hover {
+    color: #2d0000;
+}
+
+.icon-box {
+    width: 24px;
+    height: 24px;
+    position: relative;
+    flex-shrink: 0;
+    transition: filter 0.3s ease;
+}
+
+.icon-box img {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* Icon hover effect removed */
+
+.text-content {
+    font-family: "Google Sans Flex", sans-serif;
+    font-optical-sizing: auto;
+    font-weight: 700;
+    font-style: normal;
+    font-variation-settings:
+    "slnt" 0,
+    "wdth" 56,
+    "GRAD" 0,
+    "ROND" 100;
+    font-size: 20px;
+    line-height: 0.79;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+    color: inherit; /* Inherit from button state */
+    transition: font-variation-settings 0.3s ease, color 0.3s ease;
+}
+
+.button-right .text-content {
+    color: inherit;
+}
+
+.button-right:hover .text-content {
+    font-variation-settings: "slnt" 0, "wdth" 120, "GRAD" 0, "ROND" 100;
+}
+
+.explanation-container {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.logo-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: left;
+    gap: 10px;
+}
+
+logo {
+    width: 100%;
+    display: flex;
+    justify-content: left;
+    margin-top: 10px; /* Space between buttons and logo */
+}
+
+logo img {
+    height: auto;
+    width: 500px;
+}
+
+mmilogo {
+    width: 100%;
+    display: flex;
+    justify-content: left;
+    margin-top: 10px; /* Space between buttons and logo */
+}
+
+mmilogo img {
+    height: auto;
+    width: 150px;
+}
+
+@media (max-width: 768px) {
+    logo img {
+        width: 300px;
+    }
+
+    mmilogo img {
+        width: 120px;
+    }
+}
+
+.promo-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    gap: 20px;
+    /* Styles matching .search-bar */
+    background: #FFFFFF;
+    border: 1px solid #e0e0e0;
+    border-radius: 20px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    padding: 1rem; /* Added padding for internal spacing */
+    box-sizing: border-box; /* Ensure padding doesn't overflow width */
+}
+
+.promo-text {
+    color: #505050;
+    font-family: "Google Sans Flex", sans-serif;
+    font-optical-sizing: auto;
+    font-weight: 400;
+    font-style: normal;
+    font-variation-settings:
+    "slnt" 0,
+    "wdth" 76,
+    "GRAD" 0,
+    "ROND" 100;
+    font-size: 20px;
+    line-height: 1;
+    letter-spacing: 0.2px;
+    text-align: left;
+    margin: 0;
+}
+
+.promo-image {
+    width: 120px;
+    height: auto;
+    object-fit: contain;
+    transform: rotate(5deg);
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+}
+
+@media (max-width: 600px) {
+    .promo-container {
+        flex-direction: row;
+        justify-content: space-between;
+        text-align: left;
+        padding: 10px 15px;
+    }
+
+    .promo-text {
+        text-align: left;
+        font-size: 16px;
+    }
+
+    .promo-image {
+        width: 80px;
+    }
+}
+
+/* Offer Card Styles */
+.offers-container {
+    width: 100%;
+    max-width: 850px;
+    margin: 0 auto 2rem auto;
+    padding: 0 20px;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: 1fr; /* Mobile: 1 column */
+    gap: 20px;
+}
+
+@media (min-width: 768px) {
+    .offers-container {
+        grid-template-columns: repeat(2, 1fr); /* Desktop: 2 columns */
+    }
+}
+
+.offer-card {
+    background: #FFFFFF;
+    border: 1px solid #d6d6d6;
+    border-radius: 25px;
+    padding: 20px;
+    width: 100%;
+    /* max-width removed to fill grid cell */
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.offer-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+}
+
+.offer-image-container {
+    width: 100%;
+    height: 192px;
+    position: relative;
+    border-radius: 7px;
+    overflow: hidden;
+    display: flex;       /* Added centered flex layout */
+    justify-content: center;
+    align-items: center;
+    background-color: #F8F8F8; /* Light neutral background for logos */
+}
+
+.offer-image {
+    width: auto;         /* Allow auto width */
+    height: auto;        /* Allow auto height */
+    max-width: 60%;      /* Limit max size to be "small" */
+    max-height: 60%;     /* Limit max size */
+    object-fit: contain; /* Ensure no cropping */
+}
+
+.offer-details {
+    display: flex;
+    flex-direction: column;
+    gap: 15px; /* Gap between text and button */
+    width: 100%;
+}
+
+.offer-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 5px; /* Small gap between tags and title */
+}
+
+.offer-tag {
+    /* Transparent or very light background */
+    background-color: transparent;
+    border: 1px solid #2d0000;
+    color: #2d0000;
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-family: "Google Sans Flex", sans-serif;
+    font-weight: 500;
+    font-size: 14px;
+    line-height: 1.2;
+    font-variation-settings: "wdth" 60, "GRAD" 0, "ROND" 100;
+}
+
+.offer-text {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    color: #2d0000;
+}
+
+.offer-title {
+    margin: 0;
+    font-family: "Google Sans Flex", sans-serif;
+    font-weight: 700;
+    font-size: 20px;
+    line-height: 1;
+    font-variation-settings: "wdth" 56, "GRAD" 0, "ROND" 100;
+}
+
+.offer-subtitle {
+    margin: 0;
+    font-family: "Google Sans Flex", sans-serif;
+    font-weight: 400; /* Matching .promo-text weight */
+    font-size: 20px;
+    line-height: 1;
+    font-variation-settings: "wdth" 76, "GRAD" 0, "ROND" 100; /* Matching .promo-text width */
+}
+
+.offer-button {
+    background-color: #2d0000;
+    color: white;
+    text-decoration: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 15px;
+    border-radius: 10px;
+    width: 100%;
+    box-sizing: border-box;
+    transition: color 0.3s ease; /* Transition color only, background handled by pseduo */
+    position: relative; /* Needed for pseudo-element */
+    overflow: hidden; /* Clip the circle */
+    z-index: 1;
+}
+
+.offer-button::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 200%;
+    padding-bottom: 200%;
+    border-radius: 50%;
+    background-color: #FFFAF3; /* Circle color */
+    transform: translate(-50%, -50%) scale(0);
+    transition: transform 0.4s ease-out;
+    z-index: -1;
+}
+
+.offer-button:hover::before {
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.offer-button:hover {
+    background-color: #2d0000; /* Keep base background, pseudo covers it */
+    color: #2d0000; /* Text becomes dark on light background */
+}
+
+.offer-button-text {
+    font-family: "Google Sans Flex", sans-serif;
+    font-weight: 700;
+    font-size: 20px; /* Matched to 20px */
+    line-height: 1;
+    font-variation-settings: "wdth" 56, "GRAD" 0, "ROND" 100;
+    transition: font-variation-settings 0.3s ease;
+}
+
+.offer-button:hover .offer-button-text {
+    font-variation-settings: "wdth" 120, "GRAD" 0, "ROND" 100; /* Match hover variation */
+}
