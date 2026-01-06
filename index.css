@@ -236,6 +236,25 @@ mmilogo img {
     mmilogo img {
         width: 120px;
     }
+
+    /* Reduce button sizes on mobile */
+    .button-left {
+        height: 40px; /* Smaller height */
+        gap: 5px; /* Smaller gap */
+    }
+
+    .button-right {
+        padding: 5px 15px; /* Smaller padding */
+    }
+
+    .icon-box {
+        width: 20px; /* Smaller icon */
+        height: 20px;
+    }
+
+    .text-content {
+        font-size: 16px; /* Smaller font */
+    }
 }
 
 .promo-container {
