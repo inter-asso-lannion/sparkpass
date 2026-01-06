@@ -16,7 +16,7 @@ document.addEventListener("DOMContentLoaded", () => {
         offersContainer.innerHTML = '';
 
         if (offers.length === 0) {
-            offersContainer.innerHTML = '<p style="text-align:center; width:100%; color:#505050; font-family: \'Google Sans Flex\', sans-serif;">Aucune offre trouvée.</p>';
+            offersContainer.innerHTML = '<p style="text-align:center; width:100%; color:#505050; font-family: \'Plus Jakarta Sans\', sans-serif;">Aucune offre trouvée.</p>';
             return;
         }
 

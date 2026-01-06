@@ -12,9 +12,7 @@ body {
     font-style: normal;
     font-variation-settings:
     "slnt" 0,
-    "wdth" 76,
-    "GRAD" 0,
-    "ROND" 100;
+    "wdth" 76;
     font-size: 20px;
     line-height: 1;
     letter-spacing: 0.2px;
@@ -172,9 +170,7 @@ body {
     font-style: normal;
     font-variation-settings:
     "slnt" 0,
-    "wdth" 56,
-    "GRAD" 0,
-    "ROND" 100;
+    "wdth" 56;
     font-size: 20px;
     line-height: 0.79;
     letter-spacing: 0.2px;
@@ -188,7 +184,7 @@ body {
 }
 
 .button-right:hover .text-content {
-    font-variation-settings: "slnt" 0, "wdth" 120, "GRAD" 0, "ROND" 100;
+    font-variation-settings: "slnt" 0, "wdth" 120;
 }
 
 .explanation-container {
@@ -280,9 +276,7 @@ mmilogo img {
     font-style: normal;
     font-variation-settings:
     "slnt" 0,
-    "wdth" 76,
-    "GRAD" 0,
-    "ROND" 100;
+    "wdth" 76;
     font-size: 20px;
     line-height: 1;
     letter-spacing: 0.2px;
@@ -400,7 +394,7 @@ mmilogo img {
     font-weight: 500;
     font-size: 14px;
     line-height: 1.2;
-    font-variation-settings: "wdth" 60, "GRAD" 0, "ROND" 100;
+    font-variation-settings: "wdth" 60;
 }
 
 .offer-text {
@@ -416,7 +410,7 @@ mmilogo img {
     font-weight: 700;
     font-size: 20px;
     line-height: 1;
-    font-variation-settings: "wdth" 56, "GRAD" 0, "ROND" 100;
+    font-variation-settings: "wdth" 56;
 }
 
 .offer-subtitle {
@@ -425,7 +419,7 @@ mmilogo img {
     font-weight: 400; /* Matching .promo-text weight */
     font-size: 20px;
     line-height: 1;
-    font-variation-settings: "wdth" 76, "GRAD" 0, "ROND" 100; /* Matching .promo-text width */
+    font-variation-settings: "wdth" 76; /* Matching .promo-text width */
 }
 
 .offer-button {
@@ -473,12 +467,12 @@ mmilogo img {
     font-weight: 700;
     font-size: 20px; /* Matched to 20px */
     line-height: 1;
-    font-variation-settings: "wdth" 56, "GRAD" 0, "ROND" 100;
+    font-variation-settings: "wdth" 56;
     transition: font-variation-settings 0.3s ease;
 }
 
 .offer-button:hover .offer-button-text {
-    font-variation-settings: "wdth" 120, "GRAD" 0, "ROND" 100; /* Match hover variation */
+    font-variation-settings: "wdth" 120; /* Match hover variation */
 }
 
 /* Footer Styles */
