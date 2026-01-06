@@ -46,6 +46,6 @@ const offersData = [
     "subtitle": "Entrée à 10€ avec consommation pour étudiants (au lieu de 15€), majeurs uniquement.",
     "image": "offer/moodclubicone.png",
     "link": "#",
-    "tags": ["Boîte de nuit"]
+    "tags": ["Boîte de nuit", "18+"]
   }
 ];
