@@ -28,13 +28,6 @@ const offersData = [
     "tags": ["Restauration"]
   },
   {
-    "title": "V and B",
-    "subtitle": "Partenaire logistique pour événements (conseil et fourniture de boissons).",
-    "image": "offer/vandb.png",
-    "link": "#",
-    "tags": ["Bar", "Cave"]
-  },
-  {
     "title": "Le Diplomate",
     "subtitle": "Tarifs préférentiels au bar sur présentation de la carte étudiante.",
     "image": "offer/lediplo.png",
