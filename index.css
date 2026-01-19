@@ -12,7 +12,8 @@ body {
     font-style: normal;
     font-variation-settings:
     "slnt" 0,
-    "wdth" 76;
+    "wdth" 76,
+    "ROND" 100;
     font-size: 20px;
     line-height: 1;
     letter-spacing: 0.2px;
@@ -170,7 +171,8 @@ body {
     font-style: normal;
     font-variation-settings:
     "slnt" 0,
-    "wdth" 56;
+    "wdth" 56,
+    "ROND" 100;
     font-size: 20px;
     line-height: 0.79;
     letter-spacing: 0.2px;
@@ -184,7 +186,7 @@ body {
 }
 
 .button-right:hover .text-content {
-    font-variation-settings: "slnt" 0, "wdth" 120;
+    font-variation-settings: "slnt" 0, "wdth" 120, "ROND" 100;
 }
 
 .explanation-container {
@@ -276,7 +278,8 @@ mmilogo img {
     font-style: normal;
     font-variation-settings:
     "slnt" 0,
-    "wdth" 76;
+    "wdth" 76,
+    "ROND" 100;
     font-size: 20px;
     line-height: 1;
     letter-spacing: 0.2px;
@@ -338,15 +341,10 @@ mmilogo img {
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 5px;
     position: relative;
     overflow: hidden;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.offer-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
 }
 
 .offer-image-container {
@@ -372,15 +370,15 @@ mmilogo img {
 .offer-details {
     display: flex;
     flex-direction: column;
-    gap: 15px; /* Gap between text and button */
+    gap: 5px; /* Gap between text and button */
     width: 100%;
 }
 
 .offer-tags {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 5px; /* Small gap between tags and title */
+    gap: 5px;
+    padding-top: 5px;
 }
 
 .offer-tag {
@@ -394,7 +392,7 @@ mmilogo img {
     font-weight: 500;
     font-size: 14px;
     line-height: 1.2;
-    font-variation-settings: "wdth" 60;
+    font-variation-settings: "wdth" 60, "ROND" 100;
 }
 
 .offer-text {
@@ -410,7 +408,7 @@ mmilogo img {
     font-weight: 700;
     font-size: 20px;
     line-height: 1;
-    font-variation-settings: "wdth" 56;
+    font-variation-settings: "wdth" 56, "ROND" 100;
 }
 
 .offer-subtitle {
@@ -419,7 +417,7 @@ mmilogo img {
     font-weight: 400; /* Matching .promo-text weight */
     font-size: 20px;
     line-height: 1;
-    font-variation-settings: "wdth" 76; /* Matching .promo-text width */
+    font-variation-settings: "wdth" 76, "ROND" 100; /* Matching .promo-text width */
 }
 
 .offer-button {
@@ -467,12 +465,12 @@ mmilogo img {
     font-weight: 700;
     font-size: 20px; /* Matched to 20px */
     line-height: 1;
-    font-variation-settings: "wdth" 56;
+    font-variation-settings: "wdth" 56, "ROND" 100;
     transition: font-variation-settings 0.3s ease;
 }
 
 .offer-button:hover .offer-button-text {
-    font-variation-settings: "wdth" 120; /* Match hover variation */
+    font-variation-settings: "wdth" 120, "ROND" 100; /* Match hover variation */
 }
 
 /* Footer Styles */
