@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { offersData } from "./data/offers";
 import "./App.css";
 
@@ -5,6 +6,31 @@ function App() {
   // Date limite pour le bouton tulipes : 12 février 2026 à 23:59:59
   const tulipesExpirationDate = new Date("2026-02-12T23:59:59");
   const isTulipesAvailable = new Date() <= tulipesExpirationDate;
+
+  useEffect(() => {
+    // Save original title and favicon
+    const originalTitle = document.title;
+    const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+    const originalFavicon = link ? link.href : "";
+    const originalType = link ? link.type : "";
+
+    // Set SparkPass title and favicon
+    document.title = "SparkPass";
+    if (link) {
+      // Assuming logo.svg is the original/desired favicon
+      link.href = "/logo.svg";
+      link.type = "image/svg+xml";
+    }
+
+    // Restore original title and favicon on cleanup
+    return () => {
+      document.title = originalTitle;
+      if (link) {
+        link.href = originalFavicon;
+        link.type = originalType;
+      }
+    };
+  }, []);
 
   return (
     <div className="app-container">

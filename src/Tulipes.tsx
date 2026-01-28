@@ -24,6 +24,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements } from "@stripe/react-stripe-js";
+import { TulipExpressPay } from "@/components/TulipExpressPay";
+
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
 type TulipColor = "rouge" | "rose" | "blanche";
 
@@ -455,6 +460,42 @@ function Tulipes() {
           </div>
 
           <div className="w-full flex flex-col items-center gap-3 mt-4">
+            {tulipPrice > 0 && (
+              <Elements
+                stripe={stripePromise}
+                options={{
+                  mode: "payment",
+                  amount: Math.round(tulipPrice * 100), // Convert to cents
+                  currency: "eur",
+                  appearance: { theme: "stripe" },
+                }}
+              >
+                <TulipExpressPay
+                  price={tulipPrice}
+                  orderDetails={{
+                    tulipType: selectedColor,
+                    name,
+                    message,
+                    isAnonymous,
+                    customerEmail,
+                    recipientName,
+                    formation,
+                    price: tulipPrice,
+                  }}
+                  validateForm={validateForm}
+                  disabled={
+                    tulipPrice === 0 ||
+                    parseInt(stock[`stock_${selectedColor}`] || "0", 10) <= 0 ||
+                    !recipientName ||
+                    !formation ||
+                    !customerEmail ||
+                    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail) ||
+                    (!isAnonymous && !name)
+                  }
+                />
+              </Elements>
+            )}
+
             <Button
               onClick={handleOrder}
               className="w-full h-12"
