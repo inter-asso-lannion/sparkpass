@@ -8,7 +8,7 @@ export default {
   theme: {
   	extend: {
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
+        sans: ['Google Sans Flex', 'sans-serif'],
       },
   		borderRadius: {
   			lg: 'var(--radius)',
