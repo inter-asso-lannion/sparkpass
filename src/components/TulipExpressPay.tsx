@@ -83,7 +83,9 @@ export function TulipExpressPay({
     }
   };
 
-  const onConfirm = async (event: StripeExpressCheckoutElementConfirmEvent) => {
+  const onConfirm = async (
+    _event: StripeExpressCheckoutElementConfirmEvent,
+  ) => {
     if (!stripe || !elements) return;
 
     // 1. Validate Form logic
