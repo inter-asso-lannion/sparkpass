@@ -2,112 +2,22 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SparkPass</title>
-    <link rel="stylesheet" href="index.css" />
+    <title>Tulipes Inter-Asso</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:ROND,opsz,slnt,wdth,wght@0..100,6..144,-10..0,25..151,100..1000&display=swap"
       rel="stylesheet"
     />
-    <link rel="icon" type="image/png" href="favicon.png" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body>
-    <div class="gradient-bg">
-      <div class="header-container">
-        <a
-          href="https://www.instagram.com/bde.mmi.lannion/"
-          target="_blank"
-          class="button button-left"
-        >
-          <div class="icon-box">
-            <img src="instagram.svg" alt="Instagram" />
-          </div>
-          <div class="text-content">
-            <p>Instagram</p>
-          </div>
-        </a>
-        <a
-          href="https://www.helloasso.com/associations/inter-asso/adhesions/adhesion-bde-mmi-2"
-          target="_blank"
-          class="button button-right"
-        >
-          <div class="text-content">
-            <p>Devenir adhérent</p>
-          </div>
-        </a>
-        <div class="explanation-container">
-          <div class="logo-container">
-            <mmilogo>
-              <img src="logo.svg" alt="MMI Spark Logo" />
-            </mmilogo>
-            <logo>
-              <img src="sparkpass.svg" alt="SparkPass" />
-            </logo>
-          </div>
-          <p>
-            En tant qu'adhérent du BDE MMI de Lannion, tu bénéficies de
-            nombreuses réductions chez les commerces partenaires grâce à ta
-            carte SparkPass :
-          </p>
-        </div>
-        <div class="promo-container">
-          <p class="promo-text">
-            Tu n’as pas encore ta carte ? <br />
-            Deviens adhérent du BDE MMI Lannion !
-          </p>
-          <img
-            src="sparkpassexample.png"
-            alt="SparkPass Example"
-            class="promo-image"
-          />
-        </div>
-      </div>
-    </div>
-    <div class="search-bar">
-      <img src="search.svg" alt="Search" class="search-icon" />
-      <input
-        type="text"
-        class="search-input"
-        placeholder="Rechercher un commerce..."
-      />
-    </div>
-    <div class="offers-container">
-      <!-- Offers will be loaded dynamically via script.js -->
-    </div>
-    <footer class="site-footer">
-      <div class="footer-motif">
-        <img src="motif.png" alt="" />
-      </div>
-      <div class="footer-content">
-        <div class="footer-links">
-          <p>&copy; 2026 BDE MMI Lannion</p>
-          <a
-            href="https://www.instagram.com/bde.mmi.lannion/"
-            target="_blank"
-            class="footer-link"
-            >Instagram</a
-          >
-          <a
-            href="https://www.helloasso.com/associations/inter-asso/adhesions/adhesion-bde-mmi"
-            target="_blank"
-            class="footer-link"
-            >Devenir adhérent</a
-          >
-          <a href="https://inter-asso.fr/" target="_blank" class="footer-link"
-            >Inter-asso</a
-          >
-          <a href="mailto:bdemmi@inter-asso.fr" class="footer-link">Contact</a>
-        </div>
-        <div class="footer-disclaimer-box">
-          <p class="footer-disclaimer">
-            Réservé aux étudiants de l'IUT adhérents.
-          </p>
-        </div>
-      </div>
-    </footer>
-    <script src="offers_data.js"></script>
-    <script src="script.js"></script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
