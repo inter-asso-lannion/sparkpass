@@ -4,6 +4,10 @@ body {
     margin: 0;
 }
 
+.app-container {
+    font-family: "Google Sans Flex", sans-serif;
+}
+
 .explanation-container p {
     color: #2d0000;
     font-family: "Google Sans Flex", sans-serif;

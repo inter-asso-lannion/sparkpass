@@ -1,0 +1,210 @@
+/* ================================
+   TULIPES PAGE STYLES
+   Premium, modern design with
+   glassmorphism & animations
+   ================================ */
+
+/* Animated gradient background */
+.tulipes-page {
+  background: linear-gradient(135deg, #ff6b9d 0%, #c44569 25%, #f38181 50%, #fce38a 75%, #eaffd0 100%);
+  background-size: 400% 400%;
+  animation: tulipes-gradient 15s ease infinite;
+}
+
+@keyframes tulipes-gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Fixed background layer */
+.tulipes-bg {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(135deg, #ff6b9d 0%, #c44569 25%, #f38181 50%, #fce38a 75%, #eaffd0 100%);
+  background-size: 400% 400%;
+  animation: tulipes-gradient 15s ease infinite;
+  z-index: 0;
+}
+
+/* Floating decorative elements */
+.tulipes-float {
+  position: fixed;
+  font-size: 2rem;
+  opacity: 0.6;
+  animation: tulipes-float 6s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.tulipes-float-1 {
+  top: 10%;
+  left: 10%;
+  animation-delay: 0s;
+}
+
+.tulipes-float-2 {
+  top: 20%;
+  right: 15%;
+  animation-delay: 1.5s;
+  font-size: 1.5rem;
+}
+
+.tulipes-float-3 {
+  bottom: 30%;
+  left: 8%;
+  animation-delay: 3s;
+  font-size: 1.8rem;
+}
+
+.tulipes-float-4 {
+  bottom: 15%;
+  right: 10%;
+  animation-delay: 4.5s;
+}
+
+@keyframes tulipes-float {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-20px) rotate(10deg);
+  }
+}
+
+/* Glassmorphism card */
+.tulipes-card {
+  background: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.15),
+    0 0 0 1px rgba(255, 255, 255, 0.5) inset !important;
+}
+
+/* Preview area with subtle animation */
+.tulipes-preview {
+  background: linear-gradient(180deg, rgba(255, 240, 245, 0.8) 0%, rgba(255, 255, 255, 0.9) 100%);
+  box-shadow: 
+    inset 0 2px 10px rgba(0, 0, 0, 0.05),
+    0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+/* Enhanced color buttons */
+.tulipes-color-btn {
+  cursor: pointer;
+  position: relative;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.tulipes-color-btn::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.tulipes-color-btn:hover::before {
+  opacity: 1;
+}
+
+/* Form group styling */
+.tulipes-form-group {
+  transition: all 0.3s ease;
+}
+
+.tulipes-form-group:focus-within {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+}
+
+/* Input styling */
+.tulipes-input {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-radius: 12px !important;
+  transition: all 0.3s ease !important;
+}
+
+.tulipes-input:focus {
+  background: rgba(255, 255, 255, 1) !important;
+  box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.15) !important;
+}
+
+/* Order button styling */
+.tulipes-order-btn {
+  background: linear-gradient(135deg, #ec4899 0%, #ef4444 50%, #f97316 100%) !important;
+  background-size: 200% 200% !important;
+  animation: tulipes-btn-gradient 3s ease infinite !important;
+  border: none !important;
+  color: white !important;
+}
+
+.tulipes-order-btn:hover:not(:disabled) {
+  animation: tulipes-btn-gradient 1s ease infinite !important;
+}
+
+.tulipes-order-btn:disabled {
+  background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%) !important;
+  animation: none !important;
+  cursor: not-allowed;
+}
+
+@keyframes tulipes-btn-gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Float in animation for the recipient name tag */
+@keyframes float-in {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.animate-float-in {
+  animation: float-in 0.5s ease-out forwards;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .tulipes-float {
+    font-size: 1.5rem;
+    opacity: 0.4;
+  }
+  
+  .tulipes-float-2,
+  .tulipes-float-4 {
+    display: none;
+  }
+  
+  .tulipes-form-group {
+    padding: 12px !important;
+  }
+}
+
+/* Smooth scroll behavior */
+.tulipes-page {
+  scroll-behavior: smooth;
+}
+
+/* Better focus states for accessibility */
+.tulipes-page *:focus-visible {
+  outline: 2px solid #ec4899;
+  outline-offset: 2px;
+}
+
+/* Selection color matching theme */
+.tulipes-page ::selection {
+  background: rgba(236, 72, 153, 0.3);
+  color: inherit;
+}

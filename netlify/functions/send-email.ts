@@ -9,6 +9,16 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
 
 const PRODUCT_ID = process.env.STRIPE_PRODUCT_ID;
 
+// Mapping des formations vers les emails BDE Inter-Asso
+const FORMATION_BDE_EMAILS: Record<string, string> = {
+  "BUT Informatique": "bdeinfo@inter-asso.fr",
+  "BUT MMI": "bdemmi@inter-asso.fr",
+  "BUT R&T": "bdert@inter-asso.fr",
+  "BUT Info-Com (Journalisme)": "bdemmi@inter-asso.fr",
+  "BUT Info-Com (Parcours des Organisations)": "bdemmi@inter-asso.fr",
+  "BUT Mesures Physiques": "bdemp@inter-asso.fr",
+};
+
 export default async (req: Request, context: Context) => {
   if (req.method == "OPTIONS") {
     return new Response(null, {
@@ -26,13 +36,58 @@ export default async (req: Request, context: Context) => {
   }
 
   try {
-    const { toEmail, name, tulipType, message, isAnonymous, price, recipientName, formation } = await req.json();
+    const { 
+      type = "create", 
+      toEmail, 
+      name, 
+      tulipType, 
+      message, 
+      isAnonymous, 
+      price, 
+      recipientName, 
+      formation 
+    } = await req.json();
 
-    if (!toEmail || !tulipType) {
+    if (!toEmail) {
       return new Response(
         JSON.stringify({ error: "Missing required fields" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
+        { status: 400, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
       );
+    }
+
+    // --- DELIVERY EMAIL ---
+    if (type === "delivery") {
+        const htmlContent = `
+            <h1>Bonne nouvelle ! 🌷</h1>
+            <p>Ta commande pour <strong>${recipientName || "le destinataire"}</strong> ${formation ? `(${formation})` : ""} a bien été livrée !</p>
+            <br/>
+            <p>Merci pour ta participation,</p>
+            <p>L'équipe Inter-Asso</p>
+        `;
+
+        await resend.emails.send({
+            from: "Les tulipes d'Inter-Asso <tulipes@pay.inter-asso.fr>",
+            to: [toEmail],
+            subject: "Ta Tulipe a été livrée ! 🌷",
+            html: htmlContent,
+        });
+
+        return new Response(JSON.stringify({ success: true, message: "Delivery email sent" }), {
+            status: 200,
+            headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
+        });
+    }
+
+    // --- ORDER CONFIRMATION EMAIL (with stock decrement) ---
+    // Validate required fields for creation
+    if (!tulipType || !price) {
+        return new Response(
+          JSON.stringify({ error: "Missing required fields for order creation" }),
+          { status: 400, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
+        );
     }
 
     let remainingStock = "Inconnu";
@@ -75,7 +130,8 @@ export default async (req: Request, context: Context) => {
             <li><strong>Pour :</strong> ${recipientName} (${formation})</li>
             <li><strong>Message :</strong> ${message}</li>
         </ul>
-        <p>On essaye de livrer ta tulipe le plus vite possible !</p>
+        <p>Ta tulipe sera livrée dans la dernière semaine avant les vacances !</p>
+        <p>On t'envoie un email de confirmation dès que ta tulipe sera livrée.</p>
         <p>L'Inter-asso</p>
         <p>https://inter-asso.fr</p>
       `;
@@ -104,7 +160,7 @@ export default async (req: Request, context: Context) => {
       }),
       resend.emails.send({
         from: "Les tulipes d'Inter-Asso <tulipes@pay.inter-asso.fr>",
-        to: ["bdemmi@inter-asso.fr"],
+        to: [FORMATION_BDE_EMAILS[formation] || "bdemmi@inter-asso.fr"],
         subject: "Nouvelle commande de Tulipe :)",
         html: adminEmailHtml,
       })

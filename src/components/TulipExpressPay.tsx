@@ -106,7 +106,15 @@ export function TulipExpressPay({
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tulipType: orderDetails.tulipType }),
+          body: JSON.stringify({
+            tulipType: orderDetails.tulipType,
+            name: orderDetails.name,
+            message: orderDetails.message,
+            isAnonymous: orderDetails.isAnonymous,
+            customerEmail: orderDetails.customerEmail,
+            recipientName: orderDetails.recipientName,
+            formation: orderDetails.formation,
+          }),
         },
       );
       const data = await response.json();

@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import tulipeRouge from "./assets/tulipes/tulipe_rouge.png";
 import tulipeRose from "./assets/tulipes/tulipe_rose.png";
 import tulipeBlanche from "./assets/tulipes/tulipe_blanche.png";
-import banniere from "./assets/banniere.jpeg";
+import banniere from "./assets/banniere.png";
 import iconInformatique from "./assets/formation/informatique.png";
 import iconMMI from "./assets/formation/mmi.png";
 import iconRT from "./assets/formation/r&t.png";
@@ -27,6 +27,7 @@ import {
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements } from "@stripe/react-stripe-js";
 import { TulipExpressPay } from "@/components/TulipExpressPay";
+import "./Tulipes.css";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
@@ -222,7 +223,15 @@ function Tulipes() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tulipType: selectedColor }),
+          body: JSON.stringify({
+            tulipType: selectedColor,
+            name,
+            message,
+            isAnonymous,
+            customerEmail,
+            recipientName,
+            formation,
+          }),
         },
       );
 
@@ -249,21 +258,21 @@ function Tulipes() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-4 lg:p-8 flex flex-col items-center justify-center gap-8">
-      <div className="text-center space-y-3 w-full max-w-lg">
+    <div className="min-h-screen bg-background lg:p-8 flex flex-col items-center justify-start sm:justify-center gap-6 sm:gap-8 pb-8">
+      <div className="text-center space-y-3 w-full max-w-5xl mx-auto">
         <img
           src={banniere}
           alt="Tulipes de l'IUT"
-          className="w-full h-auto rounded-3xl shadow-lg"
+          className="w-full h-auto rounded-none sm:rounded-3xl shadow-lg object-cover"
         />
-        <p className="text-md text-muted-foreground">
+        <p className="text-md text-muted-foreground px-4 sm:px-0 max-w-2xl mx-auto">
           Fais plaisir à quelqu'un de l'IUT avec une fleur personnalisée. Écris
           ton message, choisis ta couleur, et reste anonyme si tu préfères.
           Parfois, un petit geste fait toute la différence!
         </p>
       </div>
 
-      <Card className="w-full max-w-3xl text-center">
+      <Card className="w-full max-w-3xl text-center mx-4 sm:mx-0 border-x-0 sm:border-x rounded-none sm:rounded-xl shadow-none sm:shadow-sm">
         <CardHeader>
           <CardTitle>Personnalise ta fleur</CardTitle>
         </CardHeader>
@@ -523,7 +532,7 @@ function Tulipes() {
       </Card>
 
       {/* Footer */}
-      <div className="text-center space-y-2 max-w-lg mt-4 px-4">
+      <div className="text-center space-y-2 max-w-lg mt-4 px-4 sm:px-0">
         <p className="text-xs text-muted-foreground font-medium">
           🎓 Réservé aux étudiants de l'IUT de Lannion
         </p>
@@ -531,9 +540,11 @@ function Tulipes() {
           Une initiative de l'<span className="font-semibold">Inter-Asso</span>,
           regroupant les BDE :
           <span className="block mt-1 text-muted-foreground/80">
-            MMI Spark • Alive (Info) • Wellcom (Info-Com) • MPintes (MP) •
-            Kart'l (R&T)
+            MMI Spark • Alive (Info) • MPintes (MP) • Kart'l (R&T)
           </span>
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Avec l'aide de l'association Well'Com
         </p>
         <p className="text-xs text-muted-foreground/60 pt-2">
           Site réalisé avec amour (c'est le cas de le dire) par{" "}

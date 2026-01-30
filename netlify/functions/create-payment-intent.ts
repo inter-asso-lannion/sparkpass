@@ -24,7 +24,11 @@ export default async (req: Request, context: Context) => {
   }
 
   try {
-    const { tulipType } = await req.json();
+    // Parse body and log for debugging
+    const body = await req.json();
+    console.log("Received payment intent request:", body);
+
+    const { tulipType, name, message, isAnonymous, customerEmail, recipientName, formation } = body;
 
     if (!PRODUCT_ID) {
        console.error("Missing STRIPE_PRODUCT_ID environment variable");
@@ -70,6 +74,22 @@ export default async (req: Request, context: Context) => {
       );
     }
 
+    // Prepare metadata carefully
+    const metadata = {
+        tulipType: String(tulipType || ""),
+        name: String((isAnonymous ? "Anonyme" : name) || ""),
+        firstName: String(name || ""), // Store original name just in case
+        message: String(message || "").substring(0, 499), // Stripe limit
+        recipientName: String(recipientName || ""),
+        formation: String(formation || ""),
+        customerEmail: String(customerEmail || ""),
+        deliveryStatus: "pending",
+        isAnonymous: isAnonymous ? "true" : "false",
+        product_id: String(PRODUCT_ID || "")
+    };
+    
+    console.log("Creating PaymentIntent with metadata:", metadata);
+
     // Create a PaymentIntent with the order amount and currency
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amount, 
@@ -77,10 +97,7 @@ export default async (req: Request, context: Context) => {
       automatic_payment_methods: {
         enabled: true,
       },
-      metadata: {
-          tulipType,
-          product_id: PRODUCT_ID || ""
-      }
+      metadata: metadata
     });
 
     return new Response(
