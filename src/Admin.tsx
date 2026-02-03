@@ -1034,6 +1034,23 @@ export default function Admin() {
             </div>
           </CardHeader>
           <CardContent>
+            <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-r-lg">
+              <div className="flex items-start gap-3">
+                <span className="text-xl">🔒</span>
+                <div>
+                  <h3 className="text-red-800 font-bold text-sm uppercase tracking-wider mb-1">
+                    Confidentiel
+                  </h3>
+                  <p className="text-red-700 text-sm">
+                    Les commandes sont strictement personnelles et ne doivent
+                    pas fuiter EN DEHORS des bénévoles pour la livraison. Des
+                    sanctions seront prises en cas de non-respect de cette
+                    règle.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="flex flex-col items-center gap-3">
