@@ -18,6 +18,13 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // Icons
 import iconInformatique from "./assets/formation/informatique.png";
@@ -111,6 +118,8 @@ interface Order {
     deliveryStatus?: string;
     isAnonymous?: string;
     firstName?: string;
+    recipientFirstName?: string;
+    recipientLastName?: string;
     recipient_name?: string;
     customer_email?: string;
     delivery_status?: string;
@@ -125,10 +134,12 @@ function OrderCard({
   order,
   toggleStatus,
   onDelete,
+  onPrint,
 }: {
   order: Order;
   toggleStatus: (id: string, status: string) => void;
   onDelete: (id: string) => void;
+  onPrint: (order: Order) => void;
 }) {
   const getMeta = (key: string, altKey?: string) =>
     order.metadata[key] || (altKey ? order.metadata[altKey] : undefined);
@@ -136,7 +147,13 @@ function OrderCard({
   const fmt = getMeta("formation") || "Inconnu";
   const deliveryStatus =
     getMeta("deliveryStatus", "delivery_status") || "pending";
-  const recipientName = getMeta("recipientName", "recipient_name");
+  getMeta("deliveryStatus", "delivery_status") || "pending";
+  const recipientFirstName = getMeta("recipientFirstName");
+  const recipientLastName = getMeta("recipientLastName");
+  const recipientName =
+    recipientFirstName && recipientLastName
+      ? `${recipientFirstName} ${recipientLastName}`
+      : getMeta("recipientName", "recipient_name");
   const name = getMeta("name");
   const isAnonymous = getMeta("isAnonymous", "is_anonymous");
   const firstName = getMeta("firstName", "first_name");
@@ -257,18 +274,26 @@ function OrderCard({
         )}
 
         {/* Action Button */}
-        <Button
-          className={`w-full mt-2 transition-all duration-200 ${
-            deliveryStatus === "delivered"
-              ? "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200"
-              : "bg-gradient-to-r from-primary to-primary/80 text-white hover:opacity-90 shadow-md"
-          }`}
-          onClick={() => toggleStatus(order.id, deliveryStatus || "pending")}
-        >
-          {deliveryStatus === "delivered"
-            ? "↩ Annuler livraison"
-            : "✓ Marquer comme livrée"}
-        </Button>
+        <div className="flex gap-2 mt-2">
+          <Button
+            variant="outline"
+            className="flex-1 bg-white hover:bg-slate-50 border-slate-200 text-slate-600"
+            onClick={() => onPrint(order)}
+            title="Imprimer cette étiquette"
+          >
+            🖨️
+          </Button>
+          <Button
+            className={`flex-[4] transition-all duration-200 ${
+              deliveryStatus === "delivered"
+                ? "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200"
+                : "bg-gradient-to-r from-primary to-primary/80 text-white hover:opacity-90 shadow-md"
+            }`}
+            onClick={() => toggleStatus(order.id, deliveryStatus || "pending")}
+          >
+            {deliveryStatus === "delivered" ? "↩ Annuler" : "✓ Livrer"}
+          </Button>
+        </div>
         <Button
           className="w-full mt-2 bg-white text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 transition-colors"
           onClick={(e) => {
@@ -294,13 +319,15 @@ export default function Admin() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [printFilter, setPrintFilter] = useState<string>("all");
   const { toast } = useToast();
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (password) {
-      localStorage.setItem("admin_auth", password);
-      setIsAuthenticated(true);
+      // Don't set authenticated immediately - wait for fetchOrders to succeed
+      // localStorage.setItem("admin_auth", password); // Moved to success
+      // setIsAuthenticated(true); // Moved to success
       fetchOrders(password);
     }
   };
@@ -323,6 +350,9 @@ export default function Admin() {
       if (res.ok) {
         const data = await res.json();
         setOrders(data.orders);
+        // Auth successful - now we can set state and save
+        setIsAuthenticated(true);
+        localStorage.setItem("admin_auth", pwd);
       } else {
         if (res.status === 401) {
           setIsAuthenticated(false);
@@ -346,13 +376,36 @@ export default function Admin() {
     }
   };
 
-  // Print last 4 orders as A4 labels (4 per page)
-  const printLabels = () => {
-    const labelOrders = orders.slice(0, 4);
-    if (labelOrders.length === 0) {
+  // Print last 4 orders based on filter OR a specific one
+  const printLabels = (specificOrder?: Order) => {
+    let ordersToPrint: Order[] = [];
+
+    if (specificOrder) {
+      ordersToPrint = [specificOrder];
+    } else {
+      // Bulk print logic
+      let filteredOrders = orders;
+      // ... same filter logic ...
+      if (printFilter !== "all") {
+        filteredOrders = orders.filter((order) => {
+          const formation = order.metadata.formation;
+          if (printFilter === "INFO_COM") {
+            return (
+              formation &&
+              (formation.includes("Info-Com") ||
+                formation.includes("Journalisme"))
+            );
+          }
+          return formation === printFilter;
+        });
+      }
+      ordersToPrint = filteredOrders.slice(0, 4);
+    }
+
+    if (ordersToPrint.length === 0) {
       toast({
         title: "Aucune commande",
-        description: "Pas de commandes à imprimer",
+        description: `Pas de commandes à imprimer`,
         variant: "destructive",
       });
       return;
@@ -361,13 +414,17 @@ export default function Admin() {
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
-    const labelsHtml = labelOrders
+    const labelsHtml = ordersToPrint
       .map((order) => {
         const getMeta = (key: string, altKey?: string) =>
           order.metadata[key] || (altKey ? order.metadata[altKey] : undefined);
 
+        const recipientFirstName = getMeta("recipientFirstName");
+        const recipientLastName = getMeta("recipientLastName");
         const recipientName =
-          getMeta("recipientName", "recipient_name") || "(Pas de nom)";
+          recipientFirstName && recipientLastName
+            ? `${recipientFirstName} ${recipientLastName}`
+            : getMeta("recipientName", "recipient_name") || "(Pas de nom)";
         const name = getMeta("name") || "Quelqu'un";
         const isAnonymous = getMeta("isAnonymous", "is_anonymous");
         const message = getMeta("message") || "";
@@ -417,15 +474,17 @@ export default function Admin() {
           }
           body {
             font-family: 'Caveat', cursive;
-            width: 210mm;
-            height: 297mm;
+            width: 190mm;
+            height: 250mm;
+            margin: 15mm auto;
             display: grid;
             grid-template-columns: 1fr 1fr;
             grid-template-rows: 1fr 1fr;
+            gap: 10mm;
           }
           .label {
             border: 2px dashed #ccc;
-            padding: 20mm;
+            padding: 10mm;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -433,6 +492,9 @@ export default function Admin() {
             text-align: center;
             gap: 12px;
             position: relative;
+            overflow: hidden;
+            height: 100%;
+            page-break-inside: avoid;
           }
           .tulip-emoji {
             font-size: 56px;
@@ -473,11 +535,7 @@ export default function Admin() {
             max-width: 90%;
             line-height: 1.4;
             margin: 12px 0;
-            padding: 16px;
-            background: #fef7f7;
-            border-radius: 12px;
-            border-left: 4px solid #f472b6;
-            transform: rotate(-1deg);
+            padding: 0;
           }
           .sender {
             margin-top: auto;
@@ -578,6 +636,8 @@ export default function Admin() {
                 recipientName:
                   getMeta("recipientName", "recipient_name") ||
                   "le destinataire",
+                recipientFirstName: getMeta("recipientFirstName"),
+                recipientLastName: getMeta("recipientLastName"),
                 formation: getMeta("formation") || "",
               }),
             })
@@ -671,8 +731,20 @@ export default function Admin() {
           <CardHeader className="text-center">
             <div className="text-4xl mb-2">🌷</div>
             <CardTitle>Accès Administrateur</CardTitle>
-            <CardDescription>
-              Entrez le mot de passe pour accéder aux commandes
+            <CardDescription className="space-y-4 pt-2">
+              <p>Entrez le mot de passe pour accéder aux commandes.</p>
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-left">
+                <p className="text-red-800 font-bold flex items-center gap-2 mb-1 text-xs uppercase tracking-wider">
+                  <span>⚠️</span> Attention
+                </p>
+                <p className="text-red-700 text-xs leading-relaxed">
+                  Ne faites fuiter ce mot de passe auprès de{" "}
+                  <span className="font-bold underline">QUI QUE CE SOIT</span>,
+                  hors des bureaux des BDE. Des sanctions disciplinaires
+                  pourraient être prises si des accès non autorisés étaient
+                  constatés.
+                </p>
+              </div>
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -682,12 +754,21 @@ export default function Admin() {
                 placeholder="Mot de passe"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
               />
               <Button
                 type="submit"
                 className="w-full bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600"
+                disabled={loading}
               >
-                Connexion
+                {loading ? (
+                  <span className="flex items-center gap-2">
+                    <span className="animate-spin h-4 w-4 border-2 border-white/50 border-t-white rounded-full"></span>
+                    Vérification...
+                  </span>
+                ) : (
+                  "Connexion"
+                )}
               </Button>
             </form>
           </CardContent>
@@ -751,10 +832,9 @@ export default function Admin() {
                   variant="secondary"
                   size="sm"
                   className="bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-sm"
-                  onClick={printLabels}
-                  title="Imprimer les 4 dernières commandes"
+                  onClick={() => printLabels()} // Bulk print
                 >
-                  🖨️ Imprimer
+                  🖨️ Imprimer (4 derniers)
                 </Button>
                 <Button
                   variant="secondary"
@@ -891,6 +971,45 @@ export default function Admin() {
           </CardContent>
         </Card>
 
+        {/* PRINT CONTROLS */}
+        <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+          <CardHeader className="pb-2 sm:pb-4">
+            <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+              <span>🖨️</span> Impression
+            </CardTitle>
+            <CardDescription className="text-xs sm:text-sm">
+              Sélectionnez une formation pour imprimer les 4 dernières commandes
+              correspondantes.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col sm:flex-row gap-4">
+            <Select value={printFilter} onValueChange={setPrintFilter}>
+              <SelectTrigger className="w-full sm:w-[280px]">
+                <SelectValue placeholder="Toutes les commandes" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes les formations</SelectItem>
+                <SelectItem value="INFO_COM">BUT Info-Com (Tout)</SelectItem>
+                <SelectItem value="BUT Informatique">
+                  BUT Informatique
+                </SelectItem>
+                <SelectItem value="BUT MMI">BUT MMI</SelectItem>
+                <SelectItem value="BUT R&T">BUT R&T</SelectItem>
+                <SelectItem value="BUT Mesures Physiques">
+                  BUT Mesures Physiques
+                </SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Button
+              className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
+              onClick={() => printLabels()}
+            >
+              Imprimer les 4 dernières
+            </Button>
+          </CardContent>
+        </Card>
+
         {/* ORDERS Section */}
         <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
           <CardHeader className="pb-2 sm:pb-4">
@@ -937,6 +1056,7 @@ export default function Admin() {
                       order={order}
                       toggleStatus={toggleStatus}
                       onDelete={(id) => deleteOrder(id)}
+                      onPrint={(order) => printLabels(order)}
                     />
                   ))}
                 </div>
@@ -960,7 +1080,7 @@ export default function Admin() {
                         <TableHead className="max-w-[280px] font-semibold">
                           Message
                         </TableHead>
-                        <TableHead className="text-right font-semibold w-[100px]">
+                        <TableHead className="text-right font-semibold w-[140px]">
                           Action
                         </TableHead>
                       </TableRow>
@@ -990,7 +1110,6 @@ export default function Admin() {
                           getMeta("tulipType", "tulip_type") || "rouge";
 
                         const config = FORMATION_CONFIG[fmt] || DEFAULT_CONFIG;
-
                         let tulipBadgeColor = "bg-gray-100 text-gray-800";
                         let tulipLabel = "Rouge";
                         let tulipEmoji = "🌷";
@@ -1117,27 +1236,15 @@ export default function Admin() {
                                 </span>
                               )}
                             </TableCell>
-
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-2">
                                 <Button
-                                  size="sm"
                                   variant="ghost"
-                                  className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
-                                  onClick={() => {
-                                    if (
-                                      window.confirm(
-                                        "Supprimer cette commande ?",
-                                      )
-                                    ) {
-                                      if (window.confirm("Certain ?")) {
-                                        deleteOrder(order.id);
-                                      }
-                                    }
-                                  }}
-                                  title="Supprimer"
+                                  size="icon"
+                                  onClick={() => printLabels(order)}
+                                  title="Imprimer"
                                 >
-                                  🗑️
+                                  🖨️
                                 </Button>
                                 <Button
                                   size="sm"
@@ -1148,8 +1255,8 @@ export default function Admin() {
                                   }
                                   className={
                                     deliveryStatus === "delivered"
-                                      ? "text-xs"
-                                      : "bg-gradient-to-r from-primary to-primary/80 text-xs shadow-md"
+                                      ? "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                                      : "bg-gradient-to-r from-primary to-primary/80 text-white hover:opacity-90 shadow-sm"
                                   }
                                   onClick={() =>
                                     toggleStatus(
@@ -1161,6 +1268,30 @@ export default function Admin() {
                                   {deliveryStatus === "delivered"
                                     ? "Annuler"
                                     : "Livrer"}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-red-400 hover:text-red-700 hover:bg-red-50"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (
+                                      window.confirm(
+                                        "Supprimer cette commande ?",
+                                      )
+                                    ) {
+                                      if (
+                                        window.confirm(
+                                          "Sûr et certain ? C'est irréversible.",
+                                        )
+                                      ) {
+                                        deleteOrder(order.id);
+                                      }
+                                    }
+                                  }}
+                                  title="Supprimer"
+                                >
+                                  🗑️
                                 </Button>
                               </div>
                             </TableCell>

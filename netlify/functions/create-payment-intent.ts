@@ -28,7 +28,7 @@ export default async (req: Request, context: Context) => {
     const body = await req.json();
     console.log("Received payment intent request:", body);
 
-    const { tulipType, name, message, isAnonymous, customerEmail, recipientName, formation } = body;
+    const { tulipType, name, message, isAnonymous, customerEmail, recipientName, recipientFirstName, recipientLastName, formation } = body;
 
     if (!PRODUCT_ID) {
        console.error("Missing STRIPE_PRODUCT_ID environment variable");
@@ -81,6 +81,8 @@ export default async (req: Request, context: Context) => {
         firstName: String(name || ""), // Store original name just in case
         message: String(message || "").substring(0, 499), // Stripe limit
         recipientName: String(recipientName || ""),
+        recipientFirstName: String(recipientFirstName || ""),
+        recipientLastName: String(recipientLastName || ""),
         formation: String(formation || ""),
         customerEmail: String(customerEmail || ""),
         deliveryStatus: "pending",

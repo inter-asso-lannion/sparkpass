@@ -18,6 +18,8 @@ interface OrderDetails {
   isAnonymous: boolean;
   customerEmail: string;
   recipientName: string;
+  recipientFirstName?: string;
+  recipientLastName?: string;
   formation: string;
   price: number;
 }
@@ -113,6 +115,8 @@ export function TulipExpressPay({
             isAnonymous: orderDetails.isAnonymous,
             customerEmail: orderDetails.customerEmail,
             recipientName: orderDetails.recipientName,
+            recipientFirstName: orderDetails.recipientFirstName,
+            recipientLastName: orderDetails.recipientLastName,
             formation: orderDetails.formation,
           }),
         },

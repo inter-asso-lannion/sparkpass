@@ -27,6 +27,8 @@ interface OrderDetails {
   isAnonymous: boolean;
   customerEmail: string;
   recipientName: string;
+  recipientFirstName?: string;
+  recipientLastName?: string;
   formation: string;
   price: number;
 }
@@ -193,7 +195,7 @@ export function PaymentModal({
 }: PaymentModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Paiement sécurisé</DialogTitle>
         </DialogHeader>

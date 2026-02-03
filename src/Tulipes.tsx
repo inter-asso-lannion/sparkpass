@@ -121,7 +121,9 @@ function Tulipes() {
   const [name, setName] = useState("");
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [customerEmail, setCustomerEmail] = useState("");
-  const [recipientName, setRecipientName] = useState("");
+  const [recipientFirstName, setRecipientFirstName] = useState("");
+  const [recipientLastName, setRecipientLastName] = useState("");
+  // recipientName is now a derived value or constructed when needed
   const [formation, setFormation] = useState("");
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [clientSecret, setClientSecret] = useState("");
@@ -132,7 +134,8 @@ function Tulipes() {
   const [errors, setErrors] = useState<{
     customerEmail?: string;
     name?: string;
-    recipientName?: string;
+    recipientFirstName?: string;
+    recipientLastName?: string;
     formation?: string;
     message?: string;
   }>({});
@@ -192,8 +195,12 @@ function Tulipes() {
     }
 
     // Recipient Name validation
-    if (!recipientName.trim()) {
-      newErrors.recipientName = "Le nom du destinataire est requis.";
+    if (!recipientFirstName.trim()) {
+      newErrors.recipientFirstName = "Le prénom du destinataire est requis.";
+      isValid = false;
+    }
+    if (!recipientLastName.trim()) {
+      newErrors.recipientLastName = "Le nom du destinataire est requis.";
       isValid = false;
     }
 
@@ -229,7 +236,9 @@ function Tulipes() {
             message,
             isAnonymous,
             customerEmail,
-            recipientName,
+            recipientName: `${recipientFirstName} ${recipientLastName}`.trim(),
+            recipientFirstName,
+            recipientLastName,
             formation,
           }),
         },
@@ -305,11 +314,11 @@ function Tulipes() {
               />
             ))}
             {/* Petit papier avec le nom du destinataire + icône formation */}
-            {recipientName && (
+            {(recipientFirstName || recipientLastName) && (
               <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-2 transition-all duration-300 ease-in-out z-10">
                 <div className="max-w-[140px] bg-amber-50 border border-amber-200 rounded-sm shadow-lg px-3 py-2 transform -rotate-2">
                   <p className="text-xs text-amber-900 font-medium truncate text-center">
-                    Pour: {recipientName}
+                    Pour: {`${recipientFirstName} ${recipientLastName}`}
                   </p>
                 </div>
                 {formation && FORMATION_ICONS[formation] && (
@@ -346,19 +355,48 @@ function Tulipes() {
 
           <div className="w-full grid gap-2 text-left">
             <Label>Pour qui ?</Label>
-            <Input
-              placeholder="Nom complet du destinataire"
-              value={recipientName}
-              onChange={(e) => {
-                setRecipientName(e.target.value);
-                if (e.target.value)
-                  setErrors((prev) => ({ ...prev, recipientName: undefined }));
-              }}
-              className={errors.recipientName ? "border-red-500" : ""}
-            />
-            {errors.recipientName && (
-              <p className="text-xs text-red-500">{errors.recipientName}</p>
-            )}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Input
+                  placeholder="Prénom"
+                  value={recipientFirstName}
+                  onChange={(e) => {
+                    setRecipientFirstName(e.target.value);
+                    if (e.target.value)
+                      setErrors((prev) => ({
+                        ...prev,
+                        recipientFirstName: undefined,
+                      }));
+                  }}
+                  className={errors.recipientFirstName ? "border-red-500" : ""}
+                />
+                {errors.recipientFirstName && (
+                  <p className="text-xs text-red-500">
+                    {errors.recipientFirstName}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-1">
+                <Input
+                  placeholder="Nom"
+                  value={recipientLastName}
+                  onChange={(e) => {
+                    setRecipientLastName(e.target.value);
+                    if (e.target.value)
+                      setErrors((prev) => ({
+                        ...prev,
+                        recipientLastName: undefined,
+                      }));
+                  }}
+                  className={errors.recipientLastName ? "border-red-500" : ""}
+                />
+                {errors.recipientLastName && (
+                  <p className="text-xs text-red-500">
+                    {errors.recipientLastName}
+                  </p>
+                )}
+              </div>
+            </div>
 
             <Select
               onValueChange={(val) => {
@@ -487,7 +525,10 @@ function Tulipes() {
                     message,
                     isAnonymous,
                     customerEmail,
-                    recipientName,
+                    recipientName:
+                      `${recipientFirstName} ${recipientLastName}`.trim(),
+                    recipientFirstName,
+                    recipientLastName,
                     formation,
                     price: tulipPrice,
                   }}
@@ -495,7 +536,8 @@ function Tulipes() {
                   disabled={
                     tulipPrice === 0 ||
                     parseInt(stock[`stock_${selectedColor}`] || "0", 10) <= 0 ||
-                    !recipientName ||
+                    !recipientFirstName ||
+                    !recipientLastName ||
                     !formation ||
                     !customerEmail ||
                     !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail) ||
@@ -537,7 +579,7 @@ function Tulipes() {
           🎓 Réservé aux étudiants de l'IUT de Lannion
         </p>
         <p className="text-xs text-muted-foreground">
-          Une initiative de l'<span className="font-semibold">Inter-Asso</span>,
+          Une initiative de l'<span className="font-semibold">INTER-ASSO</span>,
           regroupant les BDE :
           <span className="block mt-1 text-muted-foreground/80">
             MMI Spark • Alive (Info) • MPintes (MP) • Kart'l (R&T)
@@ -579,7 +621,9 @@ function Tulipes() {
           message,
           isAnonymous,
           customerEmail,
-          recipientName,
+          recipientName: `${recipientFirstName} ${recipientLastName}`.trim(),
+          recipientFirstName,
+          recipientLastName,
           formation,
           price: tulipPrice,
         }}
