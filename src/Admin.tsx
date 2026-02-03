@@ -164,7 +164,6 @@ function OrderCard({
       : getMeta("recipientName", "recipient_name");
   const name = getMeta("name");
   const isAnonymous = getMeta("isAnonymous", "is_anonymous");
-  const firstName = getMeta("firstName", "first_name");
   const message = getMeta("message");
   const tulipType = getMeta("tulipType", "tulip_type") || "rouge";
 
@@ -264,11 +263,6 @@ function OrderCard({
               </span>
             )}
           </p>
-          {isAnonymous === "true" && firstName && (
-            <p className="text-xs text-muted-foreground mt-0.5">
-              ({firstName})
-            </p>
-          )}
         </div>
 
         {/* Message */}
@@ -1366,7 +1360,6 @@ export default function Admin() {
                           "isAnonymous",
                           "is_anonymous",
                         );
-                        const firstName = getMeta("firstName", "first_name");
                         const message = getMeta("message");
                         const tulipType =
                           getMeta("tulipType", "tulip_type") || "rouge";
@@ -1475,14 +1468,6 @@ export default function Admin() {
                                   </span>
                                 )}
                               </div>
-                              {isAnonymous === "true" && firstName && (
-                                <div
-                                  className="text-xs text-muted-foreground mt-0.5"
-                                  title="Nom réel"
-                                >
-                                  ({firstName})
-                                </div>
-                              )}
                             </TableCell>
                             <TableCell
                               className="max-w-[280px]"
