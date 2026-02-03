@@ -17,9 +17,11 @@ export default async (req: Request, context: Context) => {
     });
   }
 
-  // Basic "password" check
+  // Basic "password" check - accept both admin and super admin
   const authHeader = req.headers.get("Authorization");
   const adminPassword = process.env.ADMIN_PASSWORD;
+  const superAdminPassword = process.env.SUPER_ADMIN_PASSWORD;
+  
   if (!adminPassword) {
     console.error("ADMIN_PASSWORD is not set");
     return new Response(JSON.stringify({ error: "Server configuration error" }), {
@@ -28,12 +30,15 @@ export default async (req: Request, context: Context) => {
     });
   }
   
-  if (authHeader !== `Bearer ${adminPassword}`) {
-       return new Response(JSON.stringify({ error: "Unauthorized" }), {
+  const isAdminAuth = authHeader === `Bearer ${adminPassword}`;
+  const isSuperAdminAuth = superAdminPassword && authHeader === `Bearer ${superAdminPassword}`;
+  
+  if (!isAdminAuth && !isSuperAdminAuth) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: {
         "Content-Type": "application/json",
-         "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": "*",
       },
     });
   }

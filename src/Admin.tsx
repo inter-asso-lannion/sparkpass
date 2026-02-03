@@ -25,6 +25,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // Icons
 import iconInformatique from "./assets/formation/informatique.png";
@@ -320,24 +328,46 @@ export default function Admin() {
   const [loading, setLoading] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
   const [printFilter, setPrintFilter] = useState<string>("all");
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
   const { toast } = useToast();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password) {
-      // Don't set authenticated immediately - wait for fetchOrders to succeed
-      // localStorage.setItem("admin_auth", password); // Moved to success
-      // setIsAuthenticated(true); // Moved to success
+      // Check if IP is blocked first
+      try {
+        const blockCheck = await fetch("/.netlify/functions/check-ip-blocked");
+        const blockData = await blockCheck.json();
+        if (blockData.blocked) {
+          setIsBlocked(true);
+          toast({
+            title: "Accès refusé",
+            description: "Votre adresse IP a été bloquée.",
+            variant: "destructive",
+          });
+          return;
+        }
+      } catch {
+        // Continue if check fails
+      }
       fetchOrders(password);
     }
   };
 
   useEffect(() => {
     const savedAuth = localStorage.getItem("admin_auth");
+    const hasAcceptedDisclaimer = localStorage.getItem(
+      "admin_disclaimer_accepted",
+    );
     if (savedAuth) {
       setIsAuthenticated(true);
       setPassword(savedAuth);
       fetchOrders(savedAuth);
+      // If returning user who already accepted, don't show disclaimer
+      if (!hasAcceptedDisclaimer) {
+        setShowDisclaimer(true);
+      }
     }
   }, []);
 
@@ -353,6 +383,21 @@ export default function Admin() {
         // Auth successful - now we can set state and save
         setIsAuthenticated(true);
         localStorage.setItem("admin_auth", pwd);
+
+        // Log this login for super admin tracking
+        fetch("/.netlify/functions/log-admin-login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userAgent: navigator.userAgent }),
+        }).catch(() => {}); // Silent fail
+
+        // Check if first time login (no disclaimer accepted)
+        const hasAcceptedDisclaimer = localStorage.getItem(
+          "admin_disclaimer_accepted",
+        );
+        if (!hasAcceptedDisclaimer) {
+          setShowDisclaimer(true);
+        }
       } else {
         if (res.status === 401) {
           setIsAuthenticated(false);
@@ -373,6 +418,125 @@ export default function Admin() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Export to CSV
+  const exportToCSV = () => {
+    if (orders.length === 0) {
+      toast({
+        title: "Aucune commande",
+        description: "Il n'y a aucune commande à exporter.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Define CSV headers
+    const headers = [
+      "ID",
+      "Date",
+      "Statut Paiement",
+      "Montant (€)",
+      "Type Tulipe",
+      "Formation",
+      "Destinataire Prénom",
+      "Destinataire Nom",
+      "Destinataire Complet",
+      "Message",
+      "Expéditeur",
+      "Anonyme",
+      "Email Client",
+      "Statut Livraison",
+    ];
+
+    // Helper to escape CSV fields
+    const escapeCsv = (str: string | undefined | null) => {
+      if (!str) return "";
+      const stringValue = String(str);
+      // If contains comma, double quote, or newlines, wrap in quotes and escape double quotes
+      if (
+        stringValue.includes(",") ||
+        stringValue.includes('"') ||
+        stringValue.includes("\n")
+      ) {
+        return `"${stringValue.replace(/"/g, '""')}"`;
+      }
+      return stringValue;
+    };
+
+    // Construct CSV content
+    const csvContent = orders.map((order) => {
+      const getMeta = (key: string, altKey?: string) =>
+        order.metadata[key] || (altKey ? order.metadata[altKey] : undefined);
+
+      const createdDate = new Date(order.created * 1000).toLocaleString(
+        "fr-FR",
+      );
+      const amount = (order.amount / 100).toFixed(2);
+
+      const tulipType = getMeta("tulipType", "tulip_type") || "rouge";
+      const formation = getMeta("formation") || "";
+      const recipientFirstName = getMeta("recipientFirstName") || "";
+      const recipientLastName = getMeta("recipientLastName") || "";
+      const recipientName =
+        recipientFirstName && recipientLastName
+          ? `${recipientFirstName} ${recipientLastName}`
+          : getMeta("recipientName", "recipient_name") || "";
+
+      const message = getMeta("message") || "";
+
+      const name = getMeta("name") || "";
+      const isAnonymous =
+        getMeta("isAnonymous", "is_anonymous") === "true" ? "OUI" : "NON";
+      const firstName = getMeta("firstName", "first_name") || "";
+      const senderDisplay =
+        isAnonymous === "OUI" ? `Anonyme (${name} ${firstName})` : name;
+
+      const email =
+        getMeta("customerEmail") ||
+        getMeta("customer_email") ||
+        getMeta("email") ||
+        "";
+      const deliveryStatus =
+        getMeta("deliveryStatus", "delivery_status") || "pending";
+
+      return [
+        order.id,
+        createdDate,
+        order.status,
+        amount,
+        tulipType,
+        formation,
+        recipientFirstName,
+        recipientLastName,
+        recipientName,
+        message,
+        senderDisplay,
+        isAnonymous,
+        email,
+        deliveryStatus,
+      ]
+        .map(escapeCsv)
+        .join(",");
+    });
+
+    const csvString = [headers.join(","), ...csvContent].join("\n");
+
+    // Create download link
+    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute(
+        "download",
+        `sparkpass_commandes_${new Date().toISOString().split("T")[0]}.csv`,
+      );
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   };
 
@@ -795,6 +959,62 @@ export default function Admin() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100">
+      {/* First-time disclaimer dialog */}
+      <Dialog open={showDisclaimer} onOpenChange={() => {}}>
+        <DialogContent
+          className="sm:max-w-md"
+          onPointerDownOutside={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <span>🔒</span> Informations Confidentielles
+            </DialogTitle>
+            <DialogDescription className="text-left space-y-3 pt-2">
+              <p>
+                Vous êtes sur le point d'accéder à des{" "}
+                <strong>informations personnelles et confidentielles</strong>{" "}
+                concernant les commandes de tulipes.
+              </p>
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-red-800 text-sm font-medium mb-2">
+                  En continuant, vous vous engagez à :
+                </p>
+                <ul className="text-red-700 text-sm space-y-1 list-disc list-inside">
+                  <li>
+                    Ne <strong>jamais partager</strong> ces informations
+                  </li>
+                  <li>
+                    Ne pas faire de <strong>captures d'écran</strong>
+                  </li>
+                  <li>
+                    Utiliser ces données <strong>uniquement</strong> pour la
+                    livraison
+                  </li>
+                  <li>
+                    Respecter la <strong>vie privée</strong> des acheteurs
+                  </li>
+                </ul>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Des sanctions disciplinaires pourraient être prises en cas de
+                non-respect de ces règles.
+              </p>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                localStorage.setItem("admin_disclaimer_accepted", "true");
+                setShowDisclaimer(false);
+              }}
+              className="w-full bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600"
+            >
+              J'ai compris et j'accepte
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Mobile-optimized padding */}
       <div className="p-3 sm:p-4 lg:p-8 max-w-7xl mx-auto space-y-4 sm:space-y-6 lg:space-y-8">
         {/* HEADER - Improved for mobile */}
@@ -811,6 +1031,14 @@ export default function Admin() {
                 </p>
               </div>
               <div className="flex items-center gap-2 w-full sm:w-auto">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-sm shadow-none"
+                  onClick={exportToCSV}
+                >
+                  <span className="flex items-center gap-2">📥 CSV</span>
+                </Button>
                 <Button
                   variant="secondary"
                   size="sm"

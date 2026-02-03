@@ -6,6 +6,7 @@ import App from "./App.tsx";
 import Tulipes from "./Tulipes.tsx";
 import Success from "./Success.tsx";
 import Admin from "./Admin.tsx";
+import SuperAdmin from "./SuperAdmin.tsx";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -15,6 +16,7 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/tulipes" element={<Tulipes />} />
         <Route path="/success" element={<Success />} />
         <Route path="/admin" element={<Admin />} />
+        <Route path="/super-admin" element={<SuperAdmin />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,

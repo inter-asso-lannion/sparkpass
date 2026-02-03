@@ -589,6 +589,10 @@ function Tulipes() {
           Avec l'aide de l'association Well'Com
         </p>
         <p className="text-xs text-muted-foreground/60 pt-2">
+          L'Inter-Asso se réserve le droit de refuser toute commande contenant
+          des propos inappropriés.
+        </p>
+        <p className="text-xs text-muted-foreground/60 pt-2">
           Site réalisé avec amour (c'est le cas de le dire) par{" "}
           <a
             href="https://tomthings.fr"
