@@ -42,49 +42,6 @@ export function TulipExpressPay({
   const navigate = useNavigate();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handlePostPayment = async (paymentId: string) => {
-    try {
-      const response = await fetch("/.netlify/functions/send-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...orderDetails,
-          toEmail: orderDetails.customerEmail,
-        }),
-      });
-
-      // Even if email fails, payment is done, so we go to success
-      navigate("/success", {
-        state: {
-          orderDetails: orderDetails,
-          paymentId: paymentId,
-        },
-      });
-
-      if (!response.ok) {
-        toast({
-          title: "Paiement réussi mais erreur d'envoi d'email",
-          description: "Contactez-nous si vous ne recevez rien.",
-          variant: "destructive",
-        });
-      }
-    } catch (err) {
-      console.error(err);
-      toast({
-        title: "Erreur",
-        description: "Une erreur est survenue lors de l'envoi de l'email.",
-        variant: "destructive",
-      });
-      // Still navigate to success
-      navigate("/success", {
-        state: {
-          orderDetails: orderDetails,
-          paymentId: paymentId,
-        },
-      });
-    }
-  };
-
   const onConfirm = async (
     _event: StripeExpressCheckoutElementConfirmEvent,
   ) => {
@@ -145,7 +102,12 @@ export function TulipExpressPay({
           variant: "destructive",
         });
       } else if (paymentIntent && paymentIntent.status === "succeeded") {
-        await handlePostPayment(paymentIntent.id);
+        navigate("/success", {
+          state: {
+            orderDetails: orderDetails,
+            paymentId: paymentIntent.id,
+          },
+        });
       }
     } catch (err) {
       console.error(err);

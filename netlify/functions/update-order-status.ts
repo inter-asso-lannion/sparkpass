@@ -20,7 +20,14 @@ export default async (req: Request, context: Context) => {
 
   // Basic "password" check
   const authHeader = req.headers.get("Authorization");
-  const adminPassword = process.env.ADMIN_PASSWORD || "admin";
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  if (!adminPassword) {
+    console.error("ADMIN_PASSWORD is not set");
+    return new Response(JSON.stringify({ error: "Server configuration error" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
   
   if (authHeader !== `Bearer ${adminPassword}`) {
        return new Response(JSON.stringify({ error: "Unauthorized" }), {

@@ -12,12 +12,12 @@ const PRODUCT_ID = process.env.STRIPE_PRODUCT_ID;
 
 // Mapping des formations vers les emails BDE Inter-Asso
 const FORMATION_BDE_EMAILS: Record<string, string> = {
-  "BUT Informatique": "bdeinfo@inter-asso.fr",
-  "BUT MMI": "bdemmi@inter-asso.fr",
-  "BUT R&T": "bdert@inter-asso.fr",
-  "BUT Info-Com (Journalisme)": "wellcom.asso@gmail.com",
-  "BUT Info-Com (Parcours des Organisations)": "wellcom.asso@gmail.com",
-  "BUT Mesures Physiques": "bdemp@inter-asso.fr",
+  "BUT Informatique": "tom.heliere@etudiant.univ-rennes.fr",
+  "BUT MMI": "tom.heliere@etudiant.univ-rennes.fr",
+  "BUT R&T": "tom.heliere@etudiant.univ-rennes.fr",
+  "BUT Info-Com (Journalisme)": "tom.heliere@etudiant.univ-rennes.fr",
+  "BUT Info-Com (Parcours des Organisations)": "tom.heliere@etudiant.univ-rennes.fr",
+  "BUT Mesures Physiques": "tom.heliere@etudiant.univ-rennes.fr",
 };
 
 export default async (req: Request, context: Context) => {
@@ -37,6 +37,7 @@ export default async (req: Request, context: Context) => {
   }
 
   try {
+    const body = await req.json();
     const { 
       type = "create", 
       toEmail, 
@@ -49,7 +50,7 @@ export default async (req: Request, context: Context) => {
       recipientFirstName,
       recipientLastName,
       formation 
-    } = await req.json();
+    } = body;
 
     const recipientName = providedRecipientName || (recipientFirstName && recipientLastName ? `${recipientFirstName} ${recipientLastName}` : "");
 
@@ -94,19 +95,77 @@ export default async (req: Request, context: Context) => {
 
     // --- ORDER CONFIRMATION EMAIL (with stock decrement) ---
     // Validate required fields for creation
-    if (!tulipType || !price) {
+    const { paymentIntentId } = body;
+
+    if (!paymentIntentId) {
         return new Response(
-          JSON.stringify({ error: "Missing required fields for order creation" }),
+          JSON.stringify({ error: "Missing paymentIntentId" }),
+          { status: 400, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
+        );
+    }
+
+    // 1. Retrieve the PaymentIntent from Stripe
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+    // 2. Verify status
+    if (paymentIntent.status !== 'succeeded') {
+      return new Response(
+        JSON.stringify({ error: "Payment not successful" }),
+        { status: 400, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
+      );
+    }
+
+    // 3. Check replay protection
+    if (paymentIntent.metadata.email_sent === 'true') {
+        // Already processed, just return success to be idempotent
+         return new Response(JSON.stringify({ success: true, message: "Already processed" }), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+        });
+    }
+
+    // 4. Extract trusted data from metadata
+    const metadata = paymentIntent.metadata;
+    const trustedTulipType = metadata.tulipType;
+    const trustedPrice = (paymentIntent.amount / 100).toString(); // Stripe amount is in cents
+    const trustedName = metadata.name; // This is "Anonyme" or real name based on create-payment-intent logic
+    // But wait, create-payment-intent logic: name: String((isAnonymous ? "Anonyme" : name) || "")
+    // So metadata.name is already the display name we want.
+    const trustedIsAnonymous = metadata.isAnonymous === 'true'; 
+    // metadata.name handles the anonymity, but let's stick to what we have or logic below.
+    // In create-payment-intent: name: String((isAnonymous ? "Anonyme" : name) || "")
+    // So trustedName IS the name to show "De la part de".
+    
+    // However, send-email logic used `name` (original input) and `isAnonymous` boolean.
+    // Let's rely on metadata fields fully.
+    
+    const displayFrom = trustedName; 
+    const trustedMessage = metadata.message;
+    const trustedRecipientName = metadata.recipientName;
+    const trustedFormation = metadata.formation;
+    const trustedCustomerEmail = metadata.customerEmail;
+    
+    // NOTE: Override toEmail with one from metadata to prevent phishing?
+    // The previous code trusted `toEmail` from body. 
+    // Secure approach: Use `metadata.customerEmail`.
+    const targetEmail = trustedCustomerEmail;
+
+    if (!targetEmail) {
+         return new Response(
+          JSON.stringify({ error: "No email found in order" }),
           { status: 400, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
         );
     }
 
     let remainingStock = "Inconnu";
     let currentStock = 0;
-    const stockKey = `stock_${tulipType}`;
+    const stockKey = `stock_${trustedTulipType}`;
 
-    // Fetch and decrement stock logic moved before email
-    if (PRODUCT_ID && tulipType) {
+    // Fetch and decrement stock logic
+    if (PRODUCT_ID && trustedTulipType) {
       try {
         const product = await stripe.products.retrieve(PRODUCT_ID);
         currentStock = parseInt(product.metadata[stockKey] || "0", 10);
@@ -124,6 +183,7 @@ export default async (req: Request, context: Context) => {
           });
         } else {
             remainingStock = "0 (Stock épuisé ou erreur)";
+            console.warn("Stock processed but was 0 or less:", currentStock);
         }
       } catch (err) {
         console.error("Failed to update stock:", err);
@@ -142,23 +202,23 @@ export default async (req: Request, context: Context) => {
                 <ul class="details-list">
                     <li>
                         <strong>Type de tulipe</strong>
-                        <span>${tulipType}</span>
+                        <span>${trustedTulipType}</span>
                     </li>
                     <li>
                         <strong>Prix</strong>
-                        <span>${price}€</span>
+                        <span>${trustedPrice}€</span>
                     </li>
                     <li>
                         <strong>De la part de</strong>
-                        <span>${isAnonymous ? "Anonyme" : name}</span>
+                        <span>${displayFrom}</span>
                     </li>
                     <li>
                         <strong>Pour</strong>
-                        <span>${recipientName} (${formation})</span>
+                        <span>${trustedRecipientName} (${trustedFormation})</span>
                     </li>
                     <li>
                         <strong>Message</strong>
-                        <span style="font-style: italic;">"${message}"</span>
+                        <span style="font-style: italic;">"${trustedMessage}"</span>
                     </li>
                 </ul>
             </div>
@@ -171,7 +231,7 @@ export default async (req: Request, context: Context) => {
     // Admin email content
     const adminEmailHtml = generateEmailHtml({
         title: "Nouvelle commande ! 🌷",
-        previewText: `Nouvelle commande de ${isAnonymous ? "Anonyme" : name}`,
+        previewText: `Nouvelle commande de ${displayFrom}`,
         content: `
             <h1>Nouvelle commande !</h1>
             <p>Détails de la commande reçue :</p>
@@ -180,23 +240,23 @@ export default async (req: Request, context: Context) => {
                 <ul class="details-list">
                     <li>
                         <strong>Type de tulipe</strong>
-                        <span>${tulipType}</span>
+                        <span>${trustedTulipType}</span>
                     </li>
                     <li>
                         <strong>Prix</strong>
-                        <span>${price}€</span>
+                        <span>${trustedPrice}€</span>
                     </li>
                     <li>
                         <strong>De la part de</strong>
-                        <span>${isAnonymous ? "Anonyme" : name}</span>
+                        <span>${displayFrom}</span>
                     </li>
                     <li>
                         <strong>Pour</strong>
-                        <span>${recipientName} (${formation})</span>
+                        <span>${trustedRecipientName} (${trustedFormation})</span>
                     </li>
                     <li>
                         <strong>Message</strong>
-                        <span style="font-style: italic;">"${message}"</span>
+                        <span style="font-style: italic;">"${trustedMessage}"</span>
                     </li>
                     <li>
                         <strong>Stock restant</strong>
@@ -210,19 +270,25 @@ export default async (req: Request, context: Context) => {
         `
     });
 
-    // Send to Customer and Admin separately to hide recipient from Admin
+    // Send to Customer and Admin separately
     await Promise.all([
       resend.emails.send({
         from: "Les tulipes d'Inter-Asso <tulipes@pay.inter-asso.fr>",
-        to: [toEmail],
+        to: [targetEmail],
         subject: "Confirmation de ta commande de Tulipe",
         html: customerEmailHtml,
       }),
       resend.emails.send({
         from: "Les tulipes d'Inter-Asso <tulipes@pay.inter-asso.fr>",
-        to: [FORMATION_BDE_EMAILS[formation] || "bdemmi@inter-asso.fr"],
+        to: [FORMATION_BDE_EMAILS[trustedFormation] || "bdemmi@inter-asso.fr"],
         subject: "Nouvelle commande de Tulipe :)",
         html: adminEmailHtml,
+      }),
+      // Mark as sent in Stripe to prevent replay
+      stripe.paymentIntents.update(paymentIntentId, {
+        metadata: {
+            email_sent: "true"
+        }
       })
     ]);
 

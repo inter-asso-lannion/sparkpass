@@ -1047,6 +1047,10 @@ export default function Admin() {
                     sanctions seront prises en cas de non-respect de cette
                     règle.
                   </p>
+                  <p className="text-red-700 text-sm mt-2 font-bold flex items-center gap-1">
+                    <span>⚠️</span> ATTENTION : Toutes les captures d'écran sont
+                    surveillées et seront signalées.
+                  </p>
                 </div>
               </div>
             </div>

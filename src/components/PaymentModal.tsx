@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
+
 import { useNavigate } from "react-router-dom";
 
 // Initialize Stripe outside of component
@@ -50,57 +50,9 @@ function CheckoutForm({
 }) {
   const stripe = useStripe();
   const elements = useElements();
-  const { toast } = useToast();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  const handlePostPayment = async (paymentId: string) => {
-    try {
-      const response = await fetch("/.netlify/functions/send-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...orderDetails,
-          toEmail: orderDetails.customerEmail,
-        }),
-      });
-
-      if (response.ok) {
-        navigate("/success", {
-          state: {
-            orderDetails: orderDetails,
-            paymentId: paymentId,
-          },
-        });
-      } else {
-        toast({
-          title: "Paiement réussi mais erreur d'envoi d'email",
-          description: "Contactez-nous si vous ne recevez rien.",
-          variant: "destructive",
-        });
-        navigate("/success", {
-          state: {
-            orderDetails: orderDetails,
-            paymentId: paymentId,
-          },
-        });
-      }
-    } catch (err) {
-      console.error(err);
-      toast({
-        title: "Erreur",
-        description: "Une erreur est survenue lors de l'envoi de l'email.",
-        variant: "destructive",
-      });
-      navigate("/success", {
-        state: {
-          orderDetails: orderDetails,
-          paymentId: paymentId,
-        },
-      });
-    }
-  };
 
   const onExpressConfirm = async () => {
     if (!stripe || !elements) return;
@@ -127,7 +79,12 @@ function CheckoutForm({
       setErrorMessage(error.message ?? "Une erreur est survenue");
       setIsLoading(false);
     } else if (paymentIntent && paymentIntent.status === "succeeded") {
-      await handlePostPayment(paymentIntent.id);
+      navigate("/success", {
+        state: {
+          orderDetails: orderDetails,
+          paymentId: paymentIntent.id,
+        },
+      });
       setIsLoading(false);
     } else {
       setIsLoading(false);
@@ -152,7 +109,12 @@ function CheckoutForm({
       setErrorMessage(error.message ?? "Une erreur est survenue");
       setIsLoading(false);
     } else if (paymentIntent && paymentIntent.status === "succeeded") {
-      await handlePostPayment(paymentIntent.id);
+      navigate("/success", {
+        state: {
+          orderDetails: orderDetails,
+          paymentId: paymentIntent.id,
+        },
+      });
       setIsLoading(false);
     } else {
       setIsLoading(false);
