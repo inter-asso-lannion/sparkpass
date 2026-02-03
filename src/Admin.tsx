@@ -897,18 +897,29 @@ export default function Admin() {
             <CardTitle>Accès Administrateur</CardTitle>
             <CardDescription className="space-y-4 pt-2">
               <p>Entrez le mot de passe pour accéder aux commandes.</p>
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-left">
-                <p className="text-red-800 font-bold flex items-center gap-2 mb-1 text-xs uppercase tracking-wider">
-                  <span>⚠️</span> Attention
-                </p>
-                <p className="text-red-700 text-xs leading-relaxed">
-                  Ne faites fuiter ce mot de passe auprès de{" "}
-                  <span className="font-bold underline">QUI QUE CE SOIT</span>,
-                  hors des bureaux des BDE. Des sanctions disciplinaires
-                  pourraient être prises si des accès non autorisés étaient
-                  constatés.
-                </p>
-              </div>
+              {isBlocked ? (
+                <div className="bg-red-100 border border-red-300 rounded-lg p-4 text-left">
+                  <p className="text-red-800 font-bold flex items-center gap-2 mb-1 text-sm">
+                    <span>🚫</span> Accès Bloqué
+                  </p>
+                  <p className="text-red-700 text-sm">
+                    Votre adresse IP a été bloquée. Contactez un administrateur.
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-left">
+                  <p className="text-red-800 font-bold flex items-center gap-2 mb-1 text-xs uppercase tracking-wider">
+                    <span>⚠️</span> Attention
+                  </p>
+                  <p className="text-red-700 text-xs leading-relaxed">
+                    Ne faites fuiter ce mot de passe auprès de{" "}
+                    <span className="font-bold underline">QUI QUE CE SOIT</span>
+                    , hors des bureaux des BDE. Des sanctions disciplinaires
+                    pourraient être prises si des accès non autorisés étaient
+                    constatés.
+                  </p>
+                </div>
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -918,18 +929,20 @@ export default function Admin() {
                 placeholder="Mot de passe"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
+                disabled={loading || isBlocked}
               />
               <Button
                 type="submit"
                 className="w-full bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600"
-                disabled={loading}
+                disabled={loading || isBlocked}
               >
                 {loading ? (
                   <span className="flex items-center gap-2">
                     <span className="animate-spin h-4 w-4 border-2 border-white/50 border-t-white rounded-full"></span>
                     Vérification...
                   </span>
+                ) : isBlocked ? (
+                  "Accès Refusé"
                 ) : (
                   "Connexion"
                 )}
