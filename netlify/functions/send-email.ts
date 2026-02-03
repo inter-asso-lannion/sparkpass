@@ -15,8 +15,8 @@ const FORMATION_BDE_EMAILS: Record<string, string> = {
   "BUT Informatique": "bdeinfo@inter-asso.fr",
   "BUT MMI": "bdemmi@inter-asso.fr",
   "BUT R&T": "bdert@inter-asso.fr",
-  "BUT Info-Com (Journalisme)": "bdemmi@inter-asso.fr",
-  "BUT Info-Com (Parcours des Organisations)": "bdemmi@inter-asso.fr",
+  "BUT Info-Com (Journalisme)": "wellcom.asso@gmail.com",
+  "BUT Info-Com (Parcours des Organisations)": "wellcom.asso@gmail.com",
   "BUT Mesures Physiques": "bdemp@inter-asso.fr",
 };
 
