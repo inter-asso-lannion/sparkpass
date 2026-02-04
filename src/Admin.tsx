@@ -415,125 +415,6 @@ export default function Admin() {
     }
   };
 
-  // Export to CSV
-  const exportToCSV = () => {
-    if (orders.length === 0) {
-      toast({
-        title: "Aucune commande",
-        description: "Il n'y a aucune commande à exporter.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Define CSV headers
-    const headers = [
-      "ID",
-      "Date",
-      "Statut Paiement",
-      "Montant (€)",
-      "Type Tulipe",
-      "Formation",
-      "Destinataire Prénom",
-      "Destinataire Nom",
-      "Destinataire Complet",
-      "Message",
-      "Expéditeur",
-      "Anonyme",
-      "Email Client",
-      "Statut Livraison",
-    ];
-
-    // Helper to escape CSV fields
-    const escapeCsv = (str: string | undefined | null) => {
-      if (!str) return "";
-      const stringValue = String(str);
-      // If contains comma, double quote, or newlines, wrap in quotes and escape double quotes
-      if (
-        stringValue.includes(",") ||
-        stringValue.includes('"') ||
-        stringValue.includes("\n")
-      ) {
-        return `"${stringValue.replace(/"/g, '""')}"`;
-      }
-      return stringValue;
-    };
-
-    // Construct CSV content
-    const csvContent = orders.map((order) => {
-      const getMeta = (key: string, altKey?: string) =>
-        order.metadata[key] || (altKey ? order.metadata[altKey] : undefined);
-
-      const createdDate = new Date(order.created * 1000).toLocaleString(
-        "fr-FR",
-      );
-      const amount = (order.amount / 100).toFixed(2);
-
-      const tulipType = getMeta("tulipType", "tulip_type") || "rouge";
-      const formation = getMeta("formation") || "";
-      const recipientFirstName = getMeta("recipientFirstName") || "";
-      const recipientLastName = getMeta("recipientLastName") || "";
-      const recipientName =
-        recipientFirstName && recipientLastName
-          ? `${recipientFirstName} ${recipientLastName}`
-          : getMeta("recipientName", "recipient_name") || "";
-
-      const message = getMeta("message") || "";
-
-      const name = getMeta("name") || "";
-      const isAnonymous =
-        getMeta("isAnonymous", "is_anonymous") === "true" ? "OUI" : "NON";
-      const firstName = getMeta("firstName", "first_name") || "";
-      const senderDisplay =
-        isAnonymous === "OUI" ? `Anonyme (${name} ${firstName})` : name;
-
-      const email =
-        getMeta("customerEmail") ||
-        getMeta("customer_email") ||
-        getMeta("email") ||
-        "";
-      const deliveryStatus =
-        getMeta("deliveryStatus", "delivery_status") || "pending";
-
-      return [
-        order.id,
-        createdDate,
-        order.status,
-        amount,
-        tulipType,
-        formation,
-        recipientFirstName,
-        recipientLastName,
-        recipientName,
-        message,
-        senderDisplay,
-        isAnonymous,
-        email,
-        deliveryStatus,
-      ]
-        .map(escapeCsv)
-        .join(",");
-    });
-
-    const csvString = [headers.join(","), ...csvContent].join("\n");
-
-    // Create download link
-    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    if (link.download !== undefined) {
-      const url = URL.createObjectURL(blob);
-      link.setAttribute("href", url);
-      link.setAttribute(
-        "download",
-        `sparkpass_commandes_${new Date().toISOString().split("T")[0]}.csv`,
-      );
-      link.style.visibility = "hidden";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-  };
-
   // Print last 4 orders based on filter OR a specific one
   const printLabels = (specificOrder?: Order) => {
     let ordersToPrint: Order[] = [];
@@ -1041,14 +922,6 @@ export default function Admin() {
                 <Button
                   variant="secondary"
                   size="sm"
-                  className="bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-sm shadow-none"
-                  onClick={exportToCSV}
-                >
-                  <span className="flex items-center gap-2">📥 CSV</span>
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
                   className="flex-1 sm:flex-none bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-sm"
                   onClick={() => fetchOrders(password)}
                   disabled={loading}
@@ -1351,10 +1224,13 @@ export default function Admin() {
                         const deliveryStatus =
                           getMeta("deliveryStatus", "delivery_status") ||
                           "pending";
-                        const recipientName = getMeta(
-                          "recipientName",
-                          "recipient_name",
-                        );
+                        const recipientFirstName =
+                          getMeta("recipientFirstName");
+                        const recipientLastName = getMeta("recipientLastName");
+                        const recipientName =
+                          recipientFirstName && recipientLastName
+                            ? `${recipientFirstName} ${recipientLastName}`
+                            : getMeta("recipientName", "recipient_name");
                         const name = getMeta("name");
                         const isAnonymous = getMeta(
                           "isAnonymous",

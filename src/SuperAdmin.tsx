@@ -314,6 +314,125 @@ export default function SuperAdmin() {
     return { device, browser, os };
   };
 
+  // Export to CSV
+  const exportToCSV = () => {
+    if (orders.length === 0) {
+      toast({
+        title: "Aucune commande",
+        description: "Il n'y a aucune commande à exporter.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Define CSV headers
+    const headers = [
+      "ID",
+      "Date",
+      "Statut Paiement",
+      "Montant (€)",
+      "Type Tulipe",
+      "Formation",
+      "Destinataire Prénom",
+      "Destinataire Nom",
+      "Destinataire Complet",
+      "Message",
+      "Expéditeur",
+      "Anonyme",
+      "Email Client",
+      "Statut Livraison",
+    ];
+
+    // Helper to escape CSV fields
+    const escapeCsv = (str: string | undefined | null) => {
+      if (!str) return "";
+      const stringValue = String(str);
+      // If contains comma, double quote, or newlines, wrap in quotes and escape double quotes
+      if (
+        stringValue.includes(",") ||
+        stringValue.includes('"') ||
+        stringValue.includes("\n")
+      ) {
+        return `"${stringValue.replace(/"/g, '""')}"`;
+      }
+      return stringValue;
+    };
+
+    // Construct CSV content
+    const csvContent = orders.map((order) => {
+      const getMeta = (key: string, altKey?: string) =>
+        order.metadata[key] || (altKey ? order.metadata[altKey] : undefined);
+
+      const createdDate = new Date(order.created * 1000).toLocaleString(
+        "fr-FR",
+      );
+      const amount = (order.amount / 100).toFixed(2);
+
+      const tulipType = getMeta("tulipType", "tulip_type") || "rouge";
+      const formation = getMeta("formation") || "";
+      const recipientFirstName = getMeta("recipientFirstName") || "";
+      const recipientLastName = getMeta("recipientLastName") || "";
+      const recipientName =
+        recipientFirstName && recipientLastName
+          ? `${recipientFirstName} ${recipientLastName}`
+          : getMeta("recipientName", "recipient_name") || "";
+
+      const message = getMeta("message") || "";
+
+      const name = getMeta("name") || "";
+      const isAnonymous =
+        getMeta("isAnonymous", "is_anonymous") === "true" ? "OUI" : "NON";
+      const firstName = getMeta("firstName", "first_name") || "";
+      const senderDisplay =
+        isAnonymous === "OUI" ? `Anonyme (${name} ${firstName})` : name;
+
+      const email =
+        getMeta("customerEmail") ||
+        getMeta("customer_email") ||
+        getMeta("email") ||
+        "";
+      const deliveryStatus =
+        getMeta("deliveryStatus", "delivery_status") || "pending";
+
+      return [
+        order.id,
+        createdDate,
+        order.status,
+        amount,
+        tulipType,
+        formation,
+        recipientFirstName,
+        recipientLastName,
+        recipientName,
+        message,
+        senderDisplay,
+        isAnonymous,
+        email,
+        deliveryStatus,
+      ]
+        .map(escapeCsv)
+        .join(",");
+    });
+
+    const csvString = [headers.join(","), ...csvContent].join("\n");
+
+    // Create download link
+    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute(
+        "download",
+        `sparkpass_commandes_${new Date().toISOString().split("T")[0]}.csv`,
+      );
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4">
@@ -702,6 +821,17 @@ export default function SuperAdmin() {
                 ⚠️ Modifiez avec précaution. Toutes les modifications sont
                 enregistrées.
               </CardDescription>
+            </CardHeader>
+            <CardHeader className="pt-0 pb-4">
+              <div className="flex justify-end">
+                <Button
+                  onClick={exportToCSV}
+                  variant="outline"
+                  className="gap-2 border-slate-600 text-slate-300 hover:text-white hover:bg-slate-700"
+                >
+                  <span>📥</span> Export CSV
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {loadingOrders ? (
