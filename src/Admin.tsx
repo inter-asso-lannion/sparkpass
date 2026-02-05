@@ -40,6 +40,7 @@ import iconMMI from "./assets/formation/mmi.png";
 import iconRT from "./assets/formation/r&t.png";
 import iconInfoCom from "./assets/formation/info-com.png";
 import iconMP from "./assets/formation/mp.png";
+import iconPersonnel from "./assets/formation/personnel.png";
 
 const FORMATION_CONFIG: Record<
   string,
@@ -99,6 +100,14 @@ const FORMATION_CONFIG: Record<
     text: "text-emerald-700",
     border: "border-emerald-200",
     gradient: "from-emerald-400 to-emerald-600",
+  },
+  "Personnel de l'IUT": {
+    color: "bg-slate-600",
+    icon: iconPersonnel,
+    bg: "bg-slate-50",
+    text: "text-slate-700",
+    border: "border-slate-200",
+    gradient: "from-slate-500 to-slate-600",
   },
 };
 
@@ -475,15 +484,27 @@ export default function Admin() {
         const displaySender =
           isAnonymous === "true" ? "Un admirateur secret" : name;
 
+        const nameLength = recipientName.length;
+        let nameSize = "38px";
+        if (nameLength > 15) nameSize = "32px";
+        if (nameLength > 25) nameSize = "26px";
+        if (nameLength > 35) nameSize = "22px";
+
+        const msgLength = message.length;
+        let msgSize = "24px";
+        if (msgLength > 50) msgSize = "20px";
+        if (msgLength > 100) msgSize = "16px";
+        if (msgLength > 200) msgSize = "14px";
+
         return `
           <div class="label">
             <div class="tulip-emoji">${tulipEmoji}</div>
             <div class="recipient">
               <span class="label-text">Pour</span>
-              <span class="name">${recipientName}</span>
+              <span class="name" style="font-size: ${nameSize}">${recipientName}</span>
               ${formation ? `<span class="formation">${formation}</span>` : ""}
             </div>
-            ${message ? `<div class="message">"${message}"</div>` : ""}
+            ${message ? `<div class="message" style="font-size: ${msgSize}">${message}</div>` : ""}
             <div class="sender">
               <span class="label-text">De la part de</span>
               <span class="sender-name">${displaySender}</span>
@@ -556,6 +577,8 @@ export default function Admin() {
             font-weight: 700;
             color: #1a1a1a;
             line-height: 1.1;
+            word-break: break-word;
+            overflow-wrap: break-word;
           }
           .formation {
             font-family: 'Segoe UI', sans-serif;
@@ -566,6 +589,8 @@ export default function Admin() {
             border-radius: 20px;
             margin-top: 4px;
             font-weight: 500;
+            white-space: normal;
+            text-align: center;
           }
           .message {
             font-size: 24px;
@@ -575,6 +600,8 @@ export default function Admin() {
             line-height: 1.4;
             margin: 12px 0;
             padding: 0;
+            word-break: break-word;
+            overflow-wrap: break-word;
           }
           .sender {
             margin-top: auto;

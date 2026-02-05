@@ -6,14 +6,25 @@ import { CheckCircle2, Printer } from "lucide-react";
 export default function Success() {
   const location = useLocation();
   const state = location.state as {
-    orderDetails: {
+    cartItems?: {
       tulipType: string;
       name: string;
       recipientName: string;
       formation: string;
       message: string;
       price: number;
-      isAnonymous: false;
+      isAnonymous: boolean;
+      customerEmail: string;
+    }[];
+    // Legacy support
+    orderDetails?: {
+      tulipType: string;
+      name: string;
+      recipientName: string;
+      formation: string;
+      message: string;
+      price: number;
+      isAnonymous: boolean;
       customerEmail: string;
     };
     paymentId?: string;
@@ -23,7 +34,10 @@ export default function Success() {
     return <Navigate to="/" replace />;
   }
 
-  const { orderDetails, paymentId } = state;
+  const items =
+    state.cartItems || (state.orderDetails ? [state.orderDetails] : []);
+  const paymentId = state.paymentId;
+  const customerEmail = items[0]?.customerEmail || "";
 
   return (
     <div className="min-h-screen bg-background p-8 flex flex-col items-center justify-center gap-8 print:p-0 print:bg-white">
@@ -34,54 +48,55 @@ export default function Success() {
           <p className="text-muted-foreground print:hidden">
             Merci pour votre commande. Un email de confirmation a été envoyé à{" "}
             <span className="font-semibold text-foreground">
-              {orderDetails.customerEmail}
+              {customerEmail}
             </span>
             .
           </p>
         </CardHeader>
         <CardContent className="space-y-6 text-left">
-          <div className="bg-muted/50 p-6 rounded-lg space-y-4 print:bg-transparent print:p-0 print:border print:border-gray-200">
+          <div className="bg-muted/50 p-6 rounded-lg space-y-6 print:bg-transparent print:p-0 print:border print:border-gray-200">
             <h3 className="font-semibold text-lg border-b pb-2 mb-4">
               Récapitulatif de la commande
             </h3>
 
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="text-muted-foreground">Type de tulipe</div>
-              <div className="font-medium capitalize">
-                {orderDetails.tulipType}
-              </div>
+            {items.map((item, index) => (
+              <div
+                key={index}
+                className={`space-y-4 ${index > 0 ? "pt-4 border-t border-gray-200" : ""}`}
+              >
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="text-muted-foreground">Type de tulipe</div>
+                  <div className="font-medium capitalize">{item.tulipType}</div>
 
-              <div className="text-muted-foreground">Prix</div>
-              <div className="font-medium">{orderDetails.price}€</div>
+                  <div className="text-muted-foreground">Prix</div>
+                  <div className="font-medium">{item.price}€</div>
 
-              <div className="text-muted-foreground">De la part de</div>
-              <div className="font-medium">
-                {orderDetails.isAnonymous ? "Anonyme" : orderDetails.name}
-              </div>
-
-              <div className="text-muted-foreground">Pour</div>
-              <div className="font-medium">
-                {orderDetails.recipientName} ({orderDetails.formation})
-              </div>
-
-              {paymentId && (
-                <>
-                  <div className="text-muted-foreground">
-                    Référence paiement
+                  <div className="text-muted-foreground">De la part de</div>
+                  <div className="font-medium">
+                    {item.isAnonymous ? "Anonyme" : item.name}
                   </div>
-                  <div className="font-medium font-mono text-xs">
-                    {paymentId}
-                  </div>
-                </>
-              )}
-            </div>
 
-            <div className="mt-6 pt-4 border-t">
-              <div className="text-muted-foreground mb-2">Message</div>
-              <p className="italic text-foreground bg-background p-3 rounded border print:border-gray-300">
-                "{orderDetails.message}"
-              </p>
-            </div>
+                  <div className="text-muted-foreground">Pour</div>
+                  <div className="font-medium">
+                    {item.recipientName} ({item.formation})
+                  </div>
+                </div>
+
+                <div className="mt-2 text-sm">
+                  <div className="text-muted-foreground mb-1">Message</div>
+                  <p className="italic text-foreground bg-background p-2 rounded border print:border-gray-300">
+                    "{item.message}"
+                  </p>
+                </div>
+              </div>
+            ))}
+
+            {paymentId && (
+              <div className="pt-4 border-t text-xs text-muted-foreground flex justify-between">
+                <span>Référence paiement</span>
+                <span className="font-mono">{paymentId}</span>
+              </div>
+            )}
           </div>
 
           <div className="flex gap-4 justify-center print:hidden">

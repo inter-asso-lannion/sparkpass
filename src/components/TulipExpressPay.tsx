@@ -26,13 +26,15 @@ interface OrderDetails {
 
 interface TulipExpressPayProps {
   price: number;
-  orderDetails: OrderDetails;
+  orderDetails: OrderDetails | null; // Null if using cartItems
+  cartItems?: OrderDetails[];
   validateForm: () => boolean;
   disabled: boolean;
 }
 
 export function TulipExpressPay({
   orderDetails,
+  cartItems,
   validateForm,
   disabled,
 }: TulipExpressPayProps) {
@@ -58,6 +60,32 @@ export function TulipExpressPay({
       return;
     }
 
+    // Determine payload
+    let payload = {};
+    let finalItems: OrderDetails[] = [];
+
+    if (cartItems && cartItems.length > 0) {
+      // Multi-item cart
+      payload = {
+        items: cartItems.map((item) => ({
+          ...item,
+          customerEmail: item.customerEmail || cartItems[0].customerEmail, // Global email
+        })),
+        customerEmail: cartItems[0].customerEmail,
+      };
+      finalItems = cartItems;
+    } else if (orderDetails) {
+      // Single item fallback
+      payload = {
+        items: [{ ...orderDetails }],
+        customerEmail: orderDetails.customerEmail,
+      };
+      finalItems = [orderDetails];
+    } else {
+      console.error("No items to process");
+      return;
+    }
+
     // 2. Form is valid. Create Intent.
     try {
       const response = await fetch(
@@ -65,17 +93,7 @@ export function TulipExpressPay({
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            tulipType: orderDetails.tulipType,
-            name: orderDetails.name,
-            message: orderDetails.message,
-            isAnonymous: orderDetails.isAnonymous,
-            customerEmail: orderDetails.customerEmail,
-            recipientName: orderDetails.recipientName,
-            recipientFirstName: orderDetails.recipientFirstName,
-            recipientLastName: orderDetails.recipientLastName,
-            formation: orderDetails.formation,
-          }),
+          body: JSON.stringify(payload),
         },
       );
       const data = await response.json();
@@ -104,7 +122,7 @@ export function TulipExpressPay({
       } else if (paymentIntent && paymentIntent.status === "succeeded") {
         navigate("/success", {
           state: {
-            orderDetails: orderDetails,
+            cartItems: finalItems, // Pass normalized array
             paymentId: paymentIntent.id,
           },
         });

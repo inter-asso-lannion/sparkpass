@@ -1090,6 +1090,9 @@ export default function SuperAdmin() {
                       <SelectItem value="BUT Mesures Physiques">
                         BUT Mesures Physiques
                       </SelectItem>
+                      <SelectItem value="Personnel de l'IUT">
+                        Personnel de l'IUT
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

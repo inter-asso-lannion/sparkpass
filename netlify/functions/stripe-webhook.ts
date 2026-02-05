@@ -19,6 +19,7 @@ const FORMATION_BDE_EMAILS: Record<string, string> = {
   "BUT Info-Com (Journalisme)": "tom.heliere@etudiant.univ-rennes.fr",
   "BUT Info-Com (Parcours des Organisations)": "tom.heliere@etudiant.univ-rennes.fr",
   "BUT Mesures Physiques": "tom.heliere@etudiant.univ-rennes.fr",
+  "Personnel de l'IUT": "tom.heliere@etudiant.univ-rennes.fr",
 };
 
 export default async (req: Request, context: Context) => {
@@ -59,175 +60,185 @@ export default async (req: Request, context: Context) => {
 
     console.log(`Processing Order for PaymentIntent: ${paymentIntent.id}`);
     
-    // Extract trusted data from metadata
     const metadata = paymentIntent.metadata;
-    const trustedTulipType = metadata.tulipType;
-    const trustedPrice = (paymentIntent.amount / 100).toString();
-    const trustedName = metadata.name; 
-    const displayFrom = trustedName; 
-    const trustedMessage = metadata.message;
-    const trustedRecipientName = metadata.recipientName;
-    const trustedFormation = metadata.formation;
-    const trustedCustomerEmail = metadata.customerEmail;
-    
-    const targetEmail = trustedCustomerEmail;
+    const customerEmail = metadata.customerEmail || metadata.customer_email;
+    const totalPrice = (paymentIntent.amount / 100).toFixed(2);
 
-    if (!targetEmail) {
+    if (!customerEmail) {
         console.error("No customer email found in metadata");
-        // We still return 200 to acknowledge the webhook, otherwise Stripe retries forever
         return new Response(JSON.stringify({ received: true, error: "No email" }), { status: 200 });
     }
 
-    let remainingStock = "Inconnu";
-    let currentStock = 0;
-    const stockKey = `stock_${trustedTulipType}`;
-
-    // Fetch and decrement stock logic
-    if (PRODUCT_ID && trustedTulipType) {
-      try {
-        const product = await stripe.products.retrieve(PRODUCT_ID);
-        currentStock = parseInt(product.metadata[stockKey] || "0", 10);
-        
-        if (currentStock > 0) {
-           const newStock = currentStock - 1;
-           remainingStock = newStock.toString();
-
-           // Update Stripe immediately
-           await stripe.products.update(PRODUCT_ID, {
-            metadata: {
-              [stockKey]: newStock.toString(),
-            },
-          });
-        } else {
-            remainingStock = "0 (Stock épuisé ou erreur)";
-            console.warn("Stock processed but was 0 or less:", currentStock);
+    // 1. Parse Items
+    let items: any[] = [];
+    if (metadata.item_count) {
+        const count = parseInt(metadata.item_count, 10);
+        for (let i = 0; i < count; i++) {
+            const key = `item_${i}`;
+            if (metadata[key]) {
+                try {
+                    items.push(JSON.parse(metadata[key]));
+                } catch (e) {
+                    console.error(`Failed to parse item ${i}`, e);
+                }
+            }
         }
-      } catch (err) {
-        console.error("Failed to update stock:", err);
-      }
+    } else if (metadata.tulipType) {
+        // Legacy single item support
+        items.push({
+            t: metadata.tulipType,
+            n: metadata.name, // Display name
+            // on: metadata.name, // Original Name not guaranteed available separate from display name in legacy, but acceptable.
+            m: metadata.message,
+            rn: metadata.recipientName, // Recipient Name
+            f: metadata.formation,
+            ds: metadata.deliveryStatus || "pending"
+        });
     }
 
-    // Customer email content
+    if (items.length === 0) {
+        console.error("No items found in order");
+        return new Response(JSON.stringify({ received: true, error: "No items" }), { status: 200 });
+    }
+
+    // 2. Stock Management
+    // Aggregate required stock
+    const stockRequirements: Record<string, number> = {};
+    items.forEach(item => {
+        const type = item.t;
+        if (type) {
+            stockRequirements[type] = (stockRequirements[type] || 0) + 1;
+        }
+    });
+
+    // Update Stripe Stock
+    const remainingStockLog: string[] = [];
+    if (PRODUCT_ID) {
+        try {
+            const product = await stripe.products.retrieve(PRODUCT_ID);
+            const newMetadata = { ...product.metadata };
+            let needsUpdate = false;
+
+            Object.entries(stockRequirements).forEach(([type, count]) => {
+                const stockKey = `stock_${type}`;
+                const currentStock = parseInt(newMetadata[stockKey] || "0", 10);
+                const newStock = Math.max(0, currentStock - count);
+                
+                if (currentStock !== newStock) {
+                    newMetadata[stockKey] = newStock.toString();
+                    needsUpdate = true;
+                    remainingStockLog.push(`${type}: ${newStock} (was ${currentStock})`);
+                } else {
+                     remainingStockLog.push(`${type}: ${currentStock} (Unchanged/OOS)`);
+                }
+            });
+
+            if (needsUpdate) {
+                await stripe.products.update(PRODUCT_ID, { metadata: newMetadata });
+                console.log("Stock updated:", remainingStockLog.join(", "));
+            }
+        } catch (err) {
+            console.error("Failed to update stock:", err);
+        }
+    }
+
+    // 3. Prepare Emails
+    
+    // items HTML builder helper
+    const buildItemsHtml = (itemList: any[]) => {
+        return itemList.map((item, idx) => `
+            <div style="border-left: 4px solid #ec4899; padding-left: 12px; margin-bottom: 24px;">
+                <p style="margin: 0 0 4px 0;"><strong>${item.t}</strong> (Pour: ${item.rn} - ${item.f})</p>
+                <p style="margin: 0 0 4px 0; font-size: 0.9em; color: #555;">De: ${item.n}</p>
+                <p style="margin: 0; font-style: italic; background: #f9f9f9; padding: 8px; border-radius: 4px;">"${item.m || ""}"</p>
+            </div>
+        `).join("");
+    };
+
+    // Customer Email
     const customerEmailHtml = generateEmailHtml({
         title: "Confirmation de ta commande",
-        previewText: "Merci pour ta commande de Tulipe !",
+        previewText: `Merci pour ta commande de ${items.length} tulipe(s) !`,
         content: `
             <h1>Merci pour ta commande !</h1>
-            <p>Ta commande a bien été enregistrée. Voici le récap :</p>
+            <p>Ta commande de <strong>${items.length} tulipe(s)</strong> a bien été enregistrée pour un total de <strong>${totalPrice}€</strong>.</p>
             
             <div class="details-box">
-                <ul class="details-list">
-                    <li>
-                        <strong>Type de tulipe</strong>
-                        <span>${trustedTulipType}</span>
-                    </li>
-                    <li>
-                        <strong>Prix</strong>
-                        <span>${trustedPrice}€</span>
-                    </li>
-                    <li>
-                        <strong>De la part de</strong>
-                        <span>${displayFrom}</span>
-                    </li>
-                    <li>
-                        <strong>Pour</strong>
-                        <span>${trustedRecipientName} (${trustedFormation})</span>
-                    </li>
-                    <li>
-                        <strong>Message</strong>
-                        <span style="font-style: italic;">"${trustedMessage}"</span>
-                    </li>
-                </ul>
+                <h3>Récapitulatif :</h3>
+                ${buildItemsHtml(items)}
             </div>
 
-            <p>Ta tulipe sera livrée dans la dernière semaine avant les vacances !</p>
-            <p>On t'envoie un email de confirmation dès que ta tulipe sera livrée.</p>
+            <p>Ta ou tes tulipe(s) seront livrées dans la dernière semaine avant les vacances !</p>
+            <p>On t'envoie un email de confirmation dès que chaque tulipe sera livrée.</p>
         `
     });
 
-    // Admin email content
-    const adminEmailHtml = generateEmailHtml({
-        title: "Nouvelle commande ! 🌷",
-        previewText: `Nouvelle commande de ${displayFrom}`,
-        content: `
-            <h1>Nouvelle commande !</h1>
-            <p>Détails de la commande reçue :</p>
-            
-            <div class="details-box">
-                <ul class="details-list">
-                    <li>
-                        <strong>Type de tulipe</strong>
-                        <span>${trustedTulipType}</span>
-                    </li>
-                    <li>
-                        <strong>Prix</strong>
-                        <span>${trustedPrice}€</span>
-                    </li>
-                    <li>
-                        <strong>De la part de</strong>
-                        <span>${displayFrom}</span>
-                    </li>
-                    <li>
-                        <strong>Pour</strong>
-                        <span>${trustedRecipientName} (${trustedFormation})</span>
-                    </li>
-                    <li>
-                        <strong>Message</strong>
-                        <span style="font-style: italic;">"${trustedMessage}"</span>
-                    </li>
-                    <li>
-                        <strong>Stock restant</strong>
-                        <span>${remainingStock}</span>
-                    </li>
-                </ul>
-                <div style="text-align: center; margin-top: 24px;">
-                  <a href="https://mmi.inter-asso.fr/admin" style="display: inline-block; background-color: #ec4899; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 600;">Accéder aux commandes</a>
+    // Admin Emails (Group by Formation)
+    const itemsByFormation: Record<string, any[]> = {};
+    items.forEach(item => {
+        const formation = item.f || "Autre";
+        if (!itemsByFormation[formation]) itemsByFormation[formation] = [];
+        itemsByFormation[formation].push(item);
+    });
+
+    const emailPromises: Promise<any>[] = [
+        // Send Customer Email
+        resend.emails.send({
+            from: "Les tulipes d'Inter-Asso <tulipes@pay.inter-asso.fr>",
+            to: [customerEmail],
+            subject: "Confirmation de ta commande de Tulipe",
+            html: customerEmailHtml,
+        })
+    ];
+
+    // Send Admin Emails
+    Object.entries(itemsByFormation).forEach(([formation, formationItems]) => {
+        const adminEmail = FORMATION_BDE_EMAILS[formation] || "bdemmi@inter-asso.fr";
+        
+        const adminEmailHtml = generateEmailHtml({
+            title: `Nouvelle commande (${formation}) ! 🌷`,
+            previewText: `${formationItems.length} nouvelle(s) tulipe(s) pour ${formation}`,
+            content: `
+                <h1>Nouvelle commande !</h1>
+                <p><strong>${formationItems.length}</strong> tulipe(s) commandée(s) pour <strong>${formation}</strong>.</p>
+                
+                <div class="details-box">
+                    ${buildItemsHtml(formationItems)}
+                    
+                    <div style="margin-top: 16px; font-size: 0.8em; color: #777;">
+                        <p>Stock mis à jour : ${remainingStockLog.join(" | ")}</p>
+                    </div>
+
+                    <div style="text-align: center; margin-top: 24px;">
+                      <a href="https://mmi.inter-asso.fr/admin" style="display: inline-block; background-color: #ec4899; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 600;">Accéder aux commandes</a>
+                    </div>
                 </div>
-            </div>
-        `
+            `
+        });
+
+        emailPromises.push(
+            resend.emails.send({
+                from: "Les tulipes d'Inter-Asso <tulipes@pay.inter-asso.fr>",
+                to: [adminEmail],
+                subject: `Nouvelle commande [${formation}]`,
+                html: adminEmailHtml,
+            })
+        );
     });
 
     try {
         await Promise.all([
-            resend.emails.send({
-                from: "Les tulipes d'Inter-Asso <tulipes@pay.inter-asso.fr>",
-                to: [targetEmail],
-                subject: "Confirmation de ta commande de Tulipe",
-                html: customerEmailHtml,
-            }),
-            resend.emails.send({
-                from: "Les tulipes d'Inter-Asso <tulipes@pay.inter-asso.fr>",
-                to: [FORMATION_BDE_EMAILS[trustedFormation] || "bdemmi@inter-asso.fr"],
-                subject: "Nouvelle commande de Tulipe :)",
-                html: adminEmailHtml,
-            }),
-            // Mark as sent in Stripe to prevent replay
-            stripe.paymentIntents.update(paymentIntent.id, {
+            ...emailPromises,
+             // Mark as sent in Stripe
+             stripe.paymentIntents.update(paymentIntent.id, {
                 metadata: {
                     email_sent: "true"
                 }
             })
         ]);
-        console.log(`Emails sent for ${paymentIntent.id}`);
+        console.log(`Emails sent for ${paymentIntent.id} (${items.length} items)`);
     } catch (emailError) {
         console.error("Error sending emails:", emailError);
-        // We do NOT return error to Stripe if stock was moved, otherwise it might retry and decrement stock again?
-        // Actually stock decr is done securely above. 
-        // Replay protection `email_sent` checks at top. 
-        // If email fails, `email_sent` is NOT set.
-        // So Stripe retries. Stock decrement logic DOES NOT have replay protection!
-        // Stock decrement is done based on `currentStock`. 
-        // FIX: We should probably only decrement stock if `email_sent` is not set. 
-        // Actually, we should set a `stock_decremented` flag too or just rely on `email_sent` being the final success marker.
-        // If email fails, we haven't set `email_sent`. Webhook retries. 
-        // It enters "Fetch and decrement stock" again.
-        // Ideally we should do everything in one idempotent block or have separate states.
-        // For now, let's keep it simple: if email fails, we log it. 
-        // But to avoid double stock decrement on retry, we shout check if `email_sent` is true at the start (we do).
-        // But if stock decr succeeds and email fails, we fall through, `email_sent` is NOT set. 
-        // Retry -> Decrement again (BAD).
-        
-        // BETTER APPROACH: Check custom metadata `stock_decremented`.
     }
 
     return new Response(JSON.stringify({ received: true }), { status: 200 });

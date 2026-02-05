@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import tulipeRouge from "./assets/tulipes/tulipe_rouge.png";
 import tulipeRose from "./assets/tulipes/tulipe_rose.png";
 import tulipeBlanche from "./assets/tulipes/tulipe_blanche.png";
@@ -14,6 +15,7 @@ import iconMMI from "./assets/formation/mmi.png";
 import iconRT from "./assets/formation/r&t.png";
 import iconInfoCom from "./assets/formation/info-com.png";
 import iconMP from "./assets/formation/mp.png";
+import iconPersonnel from "./assets/formation/personnel.png";
 
 import { PaymentModal } from "@/components/PaymentModal";
 import { useToast } from "@/hooks/use-toast";
@@ -82,6 +84,7 @@ const FORMATION_ICONS: Record<string, string> = {
   "BUT Info-Com (Journalisme)": iconInfoCom,
   "BUT Info-Com (Parcours des Organisations)": iconInfoCom,
   "BUT Mesures Physiques": iconMP,
+  "Personnel de l'IUT": iconPersonnel,
 };
 function Tulipes() {
   // Date limite : 12 février 2026 à 23:59:59
@@ -114,6 +117,19 @@ function Tulipes() {
         </Card>
       </div>
     );
+  }
+
+  interface CartItem {
+    id: string;
+    tulipType: TulipColor;
+    name: string;
+    message: string;
+    isAnonymous: boolean;
+    recipientName: string;
+    recipientFirstName: string;
+    recipientLastName: string;
+    formation: string;
+    price: number;
   }
 
   const [selectedColor, setSelectedColor] = useState<TulipColor>("rouge");
@@ -152,6 +168,13 @@ function Tulipes() {
         }
       })
       .catch((err) => console.error("Failed to fetch price", err));
+
+    // Load saved details from localStorage
+    const savedEmail = localStorage.getItem("sparkpass_email");
+    const savedName = localStorage.getItem("sparkpass_name");
+
+    if (savedEmail) setCustomerEmail(savedEmail);
+    if (savedName) setName(savedName);
   }, []);
 
   useEffect(() => {
@@ -214,14 +237,89 @@ function Tulipes() {
     return isValid;
   };
 
-  const handleOrder = async () => {
+  const [cart, setCart] = useState<CartItem[]>([]);
+
+  const addToCart = () => {
     if (!validateForm()) {
       toast({
-        title: "Formulaire incomplet ou invalide",
-        description: "Veuillez corriger les erreurs affichées.",
+        title: "Formulaire incomplet",
+        description:
+          "Veuillez remplir tous les champs pour ajouter une tulipe.",
         variant: "destructive",
       });
       return;
+    }
+
+    if (parseInt(stock[`stock_${selectedColor}`] || "0", 10) <= 0) {
+      toast({
+        title: "Rupture de stock",
+        description: "Ce type de tulipe n'est plus disponible.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const newItem: CartItem = {
+      id: Math.random().toString(36).substr(2, 9),
+      tulipType: selectedColor, // captured from state
+      name,
+      message,
+      isAnonymous,
+      recipientName: `${recipientFirstName} ${recipientLastName}`.trim(),
+      recipientFirstName,
+      recipientLastName,
+      formation,
+      price: tulipPrice,
+    };
+
+    setCart([...cart, newItem]);
+
+    // Reset recipient fields but keep sender info
+    setMessage("");
+    setRecipientFirstName("");
+    setRecipientLastName("");
+    setFormation("");
+    setErrors({});
+
+    toast({
+      title: "Ajouté au panier !",
+      description:
+        "Vous pouvez ajouter d'autres tulipes ou valider la commande.",
+    });
+  };
+
+  const removeFromCart = (id: string) => {
+    setCart(cart.filter((item) => item.id !== id));
+  };
+
+  const handleCheckout = async () => {
+    // Determine items to order
+    // If cart is empty, try to order current form selection (Quick Buy)
+    let itemsToOrder = [...cart];
+
+    if (itemsToOrder.length === 0) {
+      if (validateForm()) {
+        itemsToOrder.push({
+          id: "temp",
+          tulipType: selectedColor,
+          name,
+          message,
+          isAnonymous,
+          recipientName: `${recipientFirstName} ${recipientLastName}`.trim(),
+          recipientFirstName,
+          recipientLastName,
+          formation,
+          price: tulipPrice,
+        });
+      } else {
+        toast({
+          title: "Panier vide",
+          description:
+            "Ajoutez des tulipes au panier ou remplissez le formulaire.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     try {
@@ -231,15 +329,11 @@ function Tulipes() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            tulipType: selectedColor,
-            name,
-            message,
-            isAnonymous,
-            customerEmail,
-            recipientName: `${recipientFirstName} ${recipientLastName}`.trim(),
-            recipientFirstName,
-            recipientLastName,
-            formation,
+            items: itemsToOrder.map((item) => ({
+              ...item,
+              customerEmail, // Email is global for the order
+            })),
+            customerEmail, // Legacy/Global email
           }),
         },
       );
@@ -252,7 +346,7 @@ function Tulipes() {
       } else {
         toast({
           title: "Erreur",
-          description: "Impossible d'initialiser le paiement. Réessayez.",
+          description: data.error || "Impossible d'initialiser le paiement.",
           variant: "destructive",
         });
       }
@@ -265,6 +359,8 @@ function Tulipes() {
       });
     }
   };
+
+  const cartTotal = cart.reduce((acc, item) => acc + item.price, 0);
 
   return (
     <div className="min-h-screen bg-background lg:p-8 flex flex-col items-center justify-start sm:justify-center gap-6 sm:gap-8 pb-8">
@@ -279,299 +375,359 @@ function Tulipes() {
           ton message, choisis ta couleur, et reste anonyme si tu préfères.
           Parfois, un petit geste fait toute la différence!
         </p>
+        <div className="flex justify-center pt-2">
+          <Badge
+            variant="secondary"
+            className="px-4 py-1 text-sm bg-pink-100 text-pink-700 hover:bg-pink-100 border-pink-200 shadow-sm animate-pulse"
+          >
+            🚚 Distribution la dernière semaine avant les vacances !
+          </Badge>
+        </div>
       </div>
 
-      <Card className="w-full max-w-3xl text-center mx-4 sm:mx-0 border-x-0 sm:border-x rounded-none sm:rounded-xl shadow-none sm:shadow-sm">
-        <CardHeader>
-          <CardTitle>Personnalise ta fleur</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col items-center gap-6">
-          <div className="relative w-full h-64 flex justify-center bg-white rounded-xl overflow-hidden">
-            {/* Texte du message en arrière-plan avec dégradé */}
-            {message && (
-              <div className="absolute inset-0 flex items-center justify-center p-4 overflow-hidden">
-                <p
-                  className="text-gray-200 text-lg font-medium text-center leading-relaxed max-w-full break-words"
-                  style={{
-                    maskImage:
-                      "radial-gradient(ellipse at center, transparent 30%, black 70%)",
-                    WebkitMaskImage:
-                      "radial-gradient(ellipse at center, transparent 30%, black 70%)",
-                  }}
-                >
-                  {message}
-                </p>
-              </div>
-            )}
-            {(Object.keys(TULIPS) as TulipColor[]).map((color) => (
-              <img
-                key={color}
-                src={TULIPS[color].image}
-                alt={`Tulipe ${TULIPS[color].name}`}
-                className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-500 ease-in-out ${
-                  selectedColor === color ? "opacity-100" : "opacity-0"
-                }`}
-              />
-            ))}
-            {/* Petit papier avec le nom du destinataire + icône formation */}
-            {(recipientFirstName || recipientLastName) && (
-              <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-2 transition-all duration-300 ease-in-out z-10">
-                <div className="max-w-[140px] bg-amber-50 border border-amber-200 rounded-sm shadow-lg px-3 py-2 transform -rotate-2">
-                  <p className="text-xs text-amber-900 font-medium truncate text-center">
-                    Pour: {`${recipientFirstName} ${recipientLastName}`}
+      <div className="w-full max-w-3xl flex flex-col gap-6">
+        <Card className="text-center mx-4 sm:mx-0 border-x-0 sm:border-x rounded-none sm:rounded-xl shadow-none sm:shadow-sm">
+          <CardHeader>
+            <CardTitle>Personnalise ta fleur</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center gap-6">
+            <div className="relative w-full h-64 flex justify-center bg-white rounded-xl overflow-hidden">
+              {/* Texte du message en arrière-plan avec dégradé */}
+              {message && (
+                <div className="absolute inset-0 flex items-center justify-center p-4 overflow-hidden">
+                  <p
+                    className="text-gray-200 text-lg font-medium text-center leading-relaxed max-w-full break-words"
+                    style={{
+                      maskImage:
+                        "radial-gradient(ellipse at center, transparent 30%, black 70%)",
+                      WebkitMaskImage:
+                        "radial-gradient(ellipse at center, transparent 30%, black 70%)",
+                    }}
+                  >
+                    {message}
                   </p>
                 </div>
-                {formation && FORMATION_ICONS[formation] && (
-                  <img
-                    src={FORMATION_ICONS[formation]}
-                    alt={formation}
-                    className="w-10 h-10 object-contain drop-shadow-md transform rotate-3 transition-all duration-300"
-                  />
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="flex gap-4">
-            {(Object.keys(TULIPS) as TulipColor[]).map((color) => (
-              <button
-                key={color}
-                onClick={() => setSelectedColor(color)}
-                className={`w-8 h-8 rounded-full transition-all duration-200 ${
-                  TULIPS[color].colorClass
-                } ${
-                  selectedColor === color
-                    ? "ring-2 ring-offset-2 ring-primary scale-110"
-                    : "hover:scale-110 opacity-80 hover:opacity-100"
-                }`}
-                aria-label={`Choisir la tulipe ${TULIPS[color].name}`}
-              />
-            ))}
-          </div>
-          <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-            {TULIPS[selectedColor].name} -{" "}
-            {tulipPrice > 0 ? `${tulipPrice}€` : "..."}
-          </p>
-
-          <div className="w-full grid gap-2 text-left">
-            <Label>Pour qui ?</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Input
-                  placeholder="Prénom"
-                  value={recipientFirstName}
-                  onChange={(e) => {
-                    setRecipientFirstName(e.target.value);
-                    if (e.target.value)
-                      setErrors((prev) => ({
-                        ...prev,
-                        recipientFirstName: undefined,
-                      }));
-                  }}
-                  className={errors.recipientFirstName ? "border-red-500" : ""}
+              )}
+              {(Object.keys(TULIPS) as TulipColor[]).map((color) => (
+                <img
+                  key={color}
+                  src={TULIPS[color].image}
+                  alt={`Tulipe ${TULIPS[color].name}`}
+                  className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-500 ease-in-out ${
+                    selectedColor === color ? "opacity-100" : "opacity-0"
+                  }`}
                 />
-                {errors.recipientFirstName && (
-                  <p className="text-xs text-red-500">
-                    {errors.recipientFirstName}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-1">
-                <Input
-                  placeholder="Nom"
-                  value={recipientLastName}
-                  onChange={(e) => {
-                    setRecipientLastName(e.target.value);
-                    if (e.target.value)
-                      setErrors((prev) => ({
-                        ...prev,
-                        recipientLastName: undefined,
-                      }));
-                  }}
-                  className={errors.recipientLastName ? "border-red-500" : ""}
-                />
-                {errors.recipientLastName && (
-                  <p className="text-xs text-red-500">
-                    {errors.recipientLastName}
-                  </p>
-                )}
-              </div>
+              ))}
+              {/* Petit papier avec le nom du destinataire + icône formation */}
+              {(recipientFirstName || recipientLastName) && (
+                <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-2 transition-all duration-300 ease-in-out z-10">
+                  <div className="max-w-[140px] bg-amber-50 border border-amber-200 rounded-sm shadow-lg px-3 py-2 transform -rotate-2">
+                    <p className="text-xs text-amber-900 font-medium truncate text-center">
+                      Pour: {`${recipientFirstName} ${recipientLastName}`}
+                    </p>
+                  </div>
+                  {formation && FORMATION_ICONS[formation] && (
+                    <img
+                      src={FORMATION_ICONS[formation]}
+                      alt={formation}
+                      className="w-10 h-10 object-contain drop-shadow-md transform rotate-3 transition-all duration-300"
+                    />
+                  )}
+                </div>
+              )}
             </div>
 
-            <Select
-              onValueChange={(val) => {
-                setFormation(val);
-                if (val)
-                  setErrors((prev) => ({ ...prev, formation: undefined }));
-              }}
-              value={formation}
-            >
-              <SelectTrigger
-                className={errors.formation ? "border-red-500" : ""}
-              >
-                <SelectValue placeholder="Choisir la formation" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="BUT Informatique">
-                  BUT Informatique
-                </SelectItem>
-                <SelectItem value="BUT MMI">BUT MMI</SelectItem>
-                <SelectItem value="BUT R&T">BUT R&T</SelectItem>
-                <SelectItem value="BUT Info-Com (Journalisme)">
-                  BUT Info-Com (Journalisme)
-                </SelectItem>
-                <SelectItem value="BUT Info-Com (Parcours des Organisations)">
-                  BUT Info-Com (Parcours des Organisations)
-                </SelectItem>
-                <SelectItem value="BUT Mesures Physiques">
-                  BUT Mesures Physiques
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            {errors.formation && (
-              <p className="text-xs text-red-500">{errors.formation}</p>
-            )}
-          </div>
-
-          <div className="w-full grid gap-2 text-left">
-            <Label htmlFor="message">Ton message</Label>
-            <Textarea
-              id="message"
-              placeholder="Écris ton petit mot ici..."
-              maxLength={350}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              className="resize-none"
-            />
-            <p className="text-xs text-muted-foreground text-right">
-              {message.length}/350
+            <div className="flex gap-4">
+              {(Object.keys(TULIPS) as TulipColor[]).map((color) => (
+                <button
+                  key={color}
+                  onClick={() => setSelectedColor(color)}
+                  className={`w-8 h-8 rounded-full transition-all duration-200 ${
+                    TULIPS[color].colorClass
+                  } ${
+                    selectedColor === color
+                      ? "ring-2 ring-offset-2 ring-primary scale-110"
+                      : "hover:scale-110 opacity-80 hover:opacity-100"
+                  }`}
+                  aria-label={`Choisir la tulipe ${TULIPS[color].name}`}
+                />
+              ))}
+            </div>
+            <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+              {TULIPS[selectedColor].name} -{" "}
+              {tulipPrice > 0 ? `${tulipPrice}€` : "..."}
             </p>
-          </div>
 
-          <div className="w-full grid gap-2 text-left">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="name">De la part de</Label>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="anonymous"
-                  checked={isAnonymous}
-                  onCheckedChange={(checked) => {
-                    setIsAnonymous(checked);
-                    if (checked) {
-                      setErrors((prev) => ({ ...prev, name: undefined }));
+            <div className="w-full grid gap-2 text-left">
+              <Label>Pour qui ?</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Input
+                    placeholder="Prénom"
+                    value={recipientFirstName}
+                    onChange={(e) => {
+                      setRecipientFirstName(e.target.value);
+                      if (e.target.value)
+                        setErrors((prev) => ({
+                          ...prev,
+                          recipientFirstName: undefined,
+                        }));
+                    }}
+                    className={
+                      errors.recipientFirstName ? "border-red-500" : ""
                     }
-                  }}
-                />
-                <Label htmlFor="anonymous" className="cursor-pointer">
-                  Anonyme
-                </Label>
+                  />
+                  {errors.recipientFirstName && (
+                    <p className="text-xs text-red-500">
+                      {errors.recipientFirstName}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <Input
+                    placeholder="Nom"
+                    value={recipientLastName}
+                    onChange={(e) => {
+                      setRecipientLastName(e.target.value);
+                      if (e.target.value)
+                        setErrors((prev) => ({
+                          ...prev,
+                          recipientLastName: undefined,
+                        }));
+                    }}
+                    className={errors.recipientLastName ? "border-red-500" : ""}
+                  />
+                  {errors.recipientLastName && (
+                    <p className="text-xs text-red-500">
+                      {errors.recipientLastName}
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
-            <Input
-              id="name"
-              type="text"
-              placeholder="Ton prénom et nom"
-              value={isAnonymous ? "" : name}
-              onChange={(e) => {
-                setName(e.target.value);
-                if (e.target.value)
-                  setErrors((prev) => ({ ...prev, name: undefined }));
-              }}
-              disabled={isAnonymous}
-              className={errors.name ? "border-red-500" : ""}
-            />
-            {errors.name && (
-              <p className="text-xs text-red-500">{errors.name}</p>
-            )}
 
-            <Label htmlFor="email">Ton email (pour le reçu)</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="exemple@email.com"
-              value={customerEmail}
-              onChange={(e) => {
-                setCustomerEmail(e.target.value);
-                if (e.target.value)
-                  setErrors((prev) => ({ ...prev, customerEmail: undefined }));
-              }}
-              className={errors.customerEmail ? "border-red-500" : ""}
-            />
-            {errors.customerEmail && (
-              <p className="text-xs text-red-500">{errors.customerEmail}</p>
-            )}
-            <Label htmlFor="email" className="text-xs text-muted-foreground">
-              Inter-Asso n'aura pas accès à ton mail, il servira uniquement à
-              t'envoyer le reçu
-            </Label>
-          </div>
-
-          <div className="w-full flex flex-col items-center gap-3 mt-4">
-            {tulipPrice > 0 && (
-              <Elements
-                stripe={stripePromise}
-                options={{
-                  mode: "payment",
-                  amount: Math.round(tulipPrice * 100), // Convert to cents
-                  currency: "eur",
-                  appearance: { theme: "stripe" },
+              <Select
+                onValueChange={(val) => {
+                  setFormation(val);
+                  if (val)
+                    setErrors((prev) => ({ ...prev, formation: undefined }));
                 }}
+                value={formation}
               >
-                <TulipExpressPay
-                  price={tulipPrice}
-                  orderDetails={{
-                    tulipType: selectedColor,
-                    name,
-                    message,
-                    isAnonymous,
-                    customerEmail,
-                    recipientName:
-                      `${recipientFirstName} ${recipientLastName}`.trim(),
-                    recipientFirstName,
-                    recipientLastName,
-                    formation,
-                    price: tulipPrice,
+                <SelectTrigger
+                  className={errors.formation ? "border-red-500" : ""}
+                >
+                  <SelectValue placeholder="Choisir la formation" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="BUT Informatique">
+                    BUT Informatique
+                  </SelectItem>
+                  <SelectItem value="BUT MMI">BUT MMI</SelectItem>
+                  <SelectItem value="BUT R&T">BUT R&T</SelectItem>
+                  <SelectItem value="BUT Info-Com (Journalisme)">
+                    BUT Info-Com (Journalisme)
+                  </SelectItem>
+                  <SelectItem value="BUT Info-Com (Parcours des Organisations)">
+                    BUT Info-Com (Parcours des Organisations)
+                  </SelectItem>
+                  <SelectItem value="BUT Mesures Physiques">
+                    BUT Mesures Physiques
+                  </SelectItem>
+                  <SelectItem value="Personnel de l'IUT">
+                    Personnel de l'IUT
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              {errors.formation && (
+                <p className="text-xs text-red-500">{errors.formation}</p>
+              )}
+            </div>
+
+            <div className="w-full grid gap-2 text-left">
+              <Label htmlFor="message">Ton message</Label>
+              <Textarea
+                id="message"
+                placeholder="Écris ton petit mot ici..."
+                maxLength={350}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                className="resize-none"
+              />
+              <p className="text-xs text-muted-foreground text-right">
+                {message.length}/350
+              </p>
+            </div>
+
+            <div className="w-full grid gap-2 text-left">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="name">De la part de</Label>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="anonymous"
+                    checked={isAnonymous}
+                    onCheckedChange={(checked) => {
+                      setIsAnonymous(checked);
+                      if (checked) {
+                        setErrors((prev) => ({ ...prev, name: undefined }));
+                      }
+                    }}
+                  />
+                  <Label htmlFor="anonymous" className="cursor-pointer">
+                    Anonyme
+                  </Label>
+                </div>
+              </div>
+              <Input
+                id="name"
+                type="text"
+                placeholder="Ton prénom et nom"
+                value={isAnonymous ? "" : name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  if (e.target.value)
+                    setErrors((prev) => ({ ...prev, name: undefined }));
+                }}
+                disabled={isAnonymous}
+                className={errors.name ? "border-red-500" : ""}
+              />
+              {errors.name && (
+                <p className="text-xs text-red-500">{errors.name}</p>
+              )}
+
+              <Label htmlFor="email">Ton email (pour le reçu)</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="exemple@email.com"
+                value={customerEmail}
+                onChange={(e) => {
+                  setCustomerEmail(e.target.value);
+                  if (e.target.value)
+                    setErrors((prev) => ({
+                      ...prev,
+                      customerEmail: undefined,
+                    }));
+                }}
+                className={errors.customerEmail ? "border-red-500" : ""}
+              />
+              {errors.customerEmail && (
+                <p className="text-xs text-red-500">{errors.customerEmail}</p>
+              )}
+              <Label htmlFor="email" className="text-xs text-muted-foreground">
+                Inter-Asso n'aura pas accès à ton mail, il servira uniquement à
+                t'envoyer le reçu
+              </Label>
+            </div>
+
+            <div className="w-full flex flex-col items-center gap-3 mt-4">
+              {/* Add to Cart Button */}
+              <Button
+                onClick={addToCart}
+                variant="secondary"
+                className="w-full h-12 border border-primary/20 hover:border-primary/50 text-primary"
+                disabled={
+                  tulipPrice === 0 ||
+                  parseInt(stock[`stock_${selectedColor}`] || "0", 10) <= 0
+                }
+              >
+                Ajouter une tulipe ({tulipPrice > 0 ? `${tulipPrice}€` : "..."})
+              </Button>
+
+              <p
+                className={`text-sm ${
+                  parseInt(stock[`stock_${selectedColor}`] || "0", 10) < 10
+                    ? "text-red-600 font-medium"
+                    : "text-muted-foreground"
+                }`}
+              >
+                {parseInt(stock[`stock_${selectedColor}`] || "0", 10) > 0
+                  ? `Stock restant : ${stock[`stock_${selectedColor}`]}`
+                  : "Rupture de stock"}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Cart Section */}
+        {cart.length > 0 && (
+          <Card className="w-full animate-in fade-in slide-in-from-bottom-4">
+            <CardHeader>
+              <CardTitle className="flex justify-between items-center">
+                <span>Mon Panier</span>
+                <Badge variant="secondary">
+                  {cart.length} tulipe{cart.length > 1 ? "s" : ""}
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {cart.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-8 h-8 rounded-full ${TULIPS[item.tulipType].colorClass} border shadow-sm`}
+                    ></div>
+                    <div className="text-left">
+                      <p className="font-medium text-sm">
+                        Pour: {item.recipientName}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        De: {item.isAnonymous ? "Anonyme" : item.name}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="font-medium">{item.price}€</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => removeFromCart(item.id)}
+                    >
+                      ✕
+                    </Button>
+                  </div>
+                </div>
+              ))}
+
+              <div className="pt-4 border-t flex justify-between items-center">
+                <span className="font-semibold">Total</span>
+                <span className="text-xl font-bold">{cartTotal}€</span>
+              </div>
+
+              {/* Checkout Button */}
+              {tulipPrice > 0 && (
+                <Elements
+                  stripe={stripePromise}
+                  options={{
+                    mode: "payment",
+                    amount: Math.round(cartTotal * 100), // Convert to cents
+                    currency: "eur",
+                    appearance: { theme: "stripe" },
                   }}
-                  validateForm={validateForm}
-                  disabled={
-                    tulipPrice === 0 ||
-                    parseInt(stock[`stock_${selectedColor}`] || "0", 10) <= 0 ||
-                    !recipientFirstName ||
-                    !recipientLastName ||
-                    !formation ||
-                    !customerEmail ||
-                    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail) ||
-                    (!isAnonymous && !name)
-                  }
-                />
-              </Elements>
-            )}
+                >
+                  <TulipExpressPay
+                    price={cartTotal}
+                    orderDetails={null} // Pass null or adapted object
+                    cartItems={cart.map((item) => ({ ...item, customerEmail }))} // Pass cart items
+                    validateForm={() => true} // Already in cart
+                    disabled={cartTotal === 0}
+                  />
+                </Elements>
+              )}
 
-            <Button
-              onClick={handleOrder}
-              className="w-full h-12"
-              disabled={
-                tulipPrice === 0 ||
-                parseInt(stock[`stock_${selectedColor}`] || "0", 10) <= 0
-              }
-            >
-              Commander ({tulipPrice > 0 ? `${tulipPrice}€` : "..."})
-            </Button>
-
-            <p
-              className={`text-sm ${
-                parseInt(stock[`stock_${selectedColor}`] || "0", 10) < 10
-                  ? "text-red-600 font-medium"
-                  : "text-muted-foreground"
-              }`}
-            >
-              {parseInt(stock[`stock_${selectedColor}`] || "0", 10) > 0
-                ? `Stock restant : ${stock[`stock_${selectedColor}`]}`
-                : "Rupture de stock"}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+              <Button
+                onClick={handleCheckout}
+                className="w-full h-12 text-lg shadow-lg"
+              >
+                Valider la commande ({cartTotal}€)
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       {/* Footer */}
       <div className="text-center space-y-2 max-w-lg mt-4 px-4 sm:px-0">
@@ -619,18 +775,26 @@ function Tulipes() {
         isOpen={isPaymentModalOpen}
         onClose={() => setIsPaymentModalOpen(false)}
         clientSecret={clientSecret}
-        orderDetails={{
-          tulipType: selectedColor,
-          name,
-          message,
-          isAnonymous,
-          customerEmail,
-          recipientName: `${recipientFirstName} ${recipientLastName}`.trim(),
-          recipientFirstName,
-          recipientLastName,
-          formation,
-          price: tulipPrice,
-        }}
+        cartItems={
+          cart.length > 0
+            ? cart.map((item) => ({ ...item, customerEmail }))
+            : [
+                {
+                  id: "temp",
+                  tulipType: selectedColor,
+                  name,
+                  message,
+                  isAnonymous,
+                  customerEmail,
+                  recipientName:
+                    `${recipientFirstName} ${recipientLastName}`.trim(),
+                  recipientFirstName,
+                  recipientLastName,
+                  formation,
+                  price: tulipPrice,
+                },
+              ]
+        }
       />
     </div>
   );

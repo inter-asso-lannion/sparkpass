@@ -18,6 +18,7 @@ const FORMATION_BDE_EMAILS: Record<string, string> = {
   "BUT Info-Com (Journalisme)": "tom.heliere@etudiant.univ-rennes.fr",
   "BUT Info-Com (Parcours des Organisations)": "tom.heliere@etudiant.univ-rennes.fr",
   "BUT Mesures Physiques": "tom.heliere@etudiant.univ-rennes.fr",
+  "Personnel de l'IUT": "tom.heliere@etudiant.univ-rennes.fr",
 };
 
 export default async (req: Request, context: Context) => {

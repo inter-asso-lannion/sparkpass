@@ -54,12 +54,41 @@ export default async (req: Request, context: Context) => {
     }
 
 
-    // Update the metadata
-    await stripe.paymentIntents.update(paymentIntentId, {
-      metadata: {
-        deliveryStatus: status,
-      },
-    });
+    // Check if it's a virtual ID (multi-item order)
+    let targetPiId = paymentIntentId;
+    let itemIndex = -1;
+    
+    if (paymentIntentId.includes("__")) {
+      const parts = paymentIntentId.split("__");
+      targetPiId = parts[0];
+      itemIndex = parseInt(parts[1], 10);
+    }
+
+    if (itemIndex >= 0) {
+      // It's a specific item in a multi-item order
+      // We need to fetch current metadata, parse the item, update it, and save back
+      const pi = await stripe.paymentIntents.retrieve(targetPiId);
+      const itemKey = `item_${itemIndex}`;
+      const itemJson = pi.metadata[itemKey];
+      
+      if (itemJson) {
+        const item = JSON.parse(itemJson);
+        item.ds = status; // Update delivery status (ds)
+        
+        await stripe.paymentIntents.update(targetPiId, {
+          metadata: {
+            [itemKey]: JSON.stringify(item),
+          },
+        });
+      }
+    } else {
+      // Legacy or global update
+      await stripe.paymentIntents.update(paymentIntentId, {
+        metadata: {
+          deliveryStatus: status,
+        },
+      });
+    }
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

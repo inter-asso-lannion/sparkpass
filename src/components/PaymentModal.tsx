@@ -21,6 +21,7 @@ import { useNavigate } from "react-router-dom";
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
 interface OrderDetails {
+  id?: string;
   tulipType: string;
   name: string;
   message: string;
@@ -37,14 +38,14 @@ interface PaymentModalProps {
   isOpen: boolean;
   onClose: (open: boolean) => void;
   clientSecret: string;
-  orderDetails: OrderDetails;
+  cartItems: OrderDetails[];
 }
 
 function CheckoutForm({
-  orderDetails,
+  cartItems,
   clientSecret,
 }: {
-  orderDetails: OrderDetails;
+  cartItems: OrderDetails[];
   clientSecret: string;
   onClose: (open: boolean) => void;
 }) {
@@ -53,6 +54,8 @@ function CheckoutForm({
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const totalAmount = cartItems.reduce((acc, item) => acc + item.price, 0);
 
   const onExpressConfirm = async () => {
     if (!stripe || !elements) return;
@@ -81,7 +84,7 @@ function CheckoutForm({
     } else if (paymentIntent && paymentIntent.status === "succeeded") {
       navigate("/success", {
         state: {
-          orderDetails: orderDetails,
+          cartItems,
           paymentId: paymentIntent.id,
         },
       });
@@ -111,7 +114,7 @@ function CheckoutForm({
     } else if (paymentIntent && paymentIntent.status === "succeeded") {
       navigate("/success", {
         state: {
-          orderDetails: orderDetails,
+          cartItems,
           paymentId: paymentIntent.id,
         },
       });
@@ -142,7 +145,7 @@ function CheckoutForm({
           <div className="text-red-500 text-sm">{errorMessage}</div>
         )}
         <Button disabled={!stripe || isLoading} className="w-full">
-          {isLoading ? "Traitement..." : `Payer ${orderDetails.price}€`}
+          {isLoading ? "Traitement..." : `Payer ${totalAmount}€`}
         </Button>
       </form>
     </div>
@@ -153,7 +156,7 @@ export function PaymentModal({
   isOpen,
   onClose,
   clientSecret,
-  orderDetails,
+  cartItems,
 }: PaymentModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -164,7 +167,7 @@ export function PaymentModal({
         {clientSecret && (
           <Elements stripe={stripePromise} options={{ clientSecret }}>
             <CheckoutForm
-              orderDetails={orderDetails}
+              cartItems={cartItems}
               clientSecret={clientSecret}
               onClose={onClose}
             />

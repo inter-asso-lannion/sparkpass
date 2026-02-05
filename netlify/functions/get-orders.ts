@@ -52,14 +52,61 @@ export default async (req: Request, context: Context) => {
     // Filter for only those that have "tulipType" in metadata (our orders)
     // and exclude deleted ones
     const orders = paymentIntents.data
-      .filter((pi) => pi.metadata && pi.metadata.tulipType && pi.status === 'succeeded' && pi.metadata.deleted !== 'true')
-      .map((pi) => ({
-        id: pi.id,
-        created: pi.created,
-        amount: pi.amount,
-        status: pi.status,
-        metadata: pi.metadata,
-      }));
+      .filter((pi) => pi.status === 'succeeded' && pi.metadata && pi.metadata.deleted !== 'true')
+      .flatMap((pi) => {
+        // Check if it's a multi-item order
+        if (pi.metadata.item_count) {
+          const count = parseInt(pi.metadata.item_count, 10);
+          const subOrders = [];
+          
+          for (let i = 0; i < count; i++) {
+            const itemKey = `item_${i}`;
+            const itemJson = pi.metadata[itemKey];
+            
+            if (itemJson) {
+              try {
+                const item = JSON.parse(itemJson);
+                // Map compact keys back to full keys for frontend
+                subOrders.push({
+                  id: `${pi.id}__${i}`, // Virtual ID with double underscore
+                  created: pi.created,
+                  amount: pi.amount / count, // Approximate per-item amount (not precise but ok for display)
+                  status: pi.status,
+                  metadata: {
+                    tulipType: item.t,
+                    name: item.n, // Display name
+                    firstName: item.on, // Original name
+                    message: item.m,
+                    recipientName: item.rn,
+                    recipientFirstName: item.rfn,
+                    recipientLastName: item.rln,
+                    formation: item.f,
+                    customerEmail: pi.metadata.customer_email || pi.metadata.customerEmail,
+                    deliveryStatus: item.ds || "pending",
+                    isAnonymous: item.a === "1" ? "true" : "false",
+                    itemIndex: i, // Store index for updates
+                    parentPaymentIntentId: pi.id // Store parent ID
+                  }
+                });
+              } catch (e) {
+                console.error("Failed to parse item metadata", e);
+              }
+            }
+          }
+          return subOrders;
+        } else if (pi.metadata.tulipType) {
+          // Legacy single order
+          // Force cast metadata to any to compatibility with the expanded metadata type above
+          return [{
+            id: pi.id,
+            created: pi.created,
+            amount: pi.amount,
+            status: pi.status,
+            metadata: pi.metadata as any,
+          }];
+        }
+        return [];
+      });
     
     console.log(`Fetched ${orders.length} orders. Sample metadata:`, orders[0]?.metadata);
 
