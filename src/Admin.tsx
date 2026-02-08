@@ -333,6 +333,13 @@ export default function Admin() {
   const [printFilter, setPrintFilter] = useState<string>("all");
   const [showDisclaimer, setShowDisclaimer] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState<
+    "buyers" | "recipients" | null
+  >(null);
+  const [expandedSenders, setExpandedSenders] = useState<Set<string>>(
+    new Set(),
+  );
+  const [viewMode, setViewMode] = useState<"grouped" | "flat">("grouped");
   const { toast } = useToast();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -424,12 +431,64 @@ export default function Admin() {
     }
   };
 
-  // Print last 4 orders based on filter OR a specific one
-  const printLabels = (specificOrder?: Order) => {
+  // Silent refresh - updates orders without showing loading spinner (for real-time sync)
+  const silentRefresh = async () => {
+    if (!password || !isAuthenticated) return;
+    try {
+      const res = await fetch("/.netlify/functions/get-orders", {
+        headers: { Authorization: `Bearer ${password}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setOrders(data.orders);
+      }
+    } catch {
+      // Silent fail - don't interrupt the user
+    }
+  };
+
+  // Auto-refresh orders every 5 seconds for real-time sync across devices
+  useEffect(() => {
+    if (!isAuthenticated || !password) return;
+
+    const POLLING_INTERVAL = 5000; // 5 seconds
+    let intervalId: ReturnType<typeof setInterval>;
+
+    const startPolling = () => {
+      intervalId = setInterval(silentRefresh, POLLING_INTERVAL);
+    };
+
+    const stopPolling = () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+
+    // Handle visibility change - pause polling when tab is hidden
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        silentRefresh(); // Refresh immediately when coming back
+        startPolling();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    startPolling();
+
+    return () => {
+      stopPolling();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [isAuthenticated, password]);
+
+  // Print last 4 orders based on filter OR a specific one OR a list
+  const printLabels = (input?: Order | Order[]) => {
     let ordersToPrint: Order[] = [];
 
-    if (specificOrder) {
-      ordersToPrint = [specificOrder];
+    if (Array.isArray(input)) {
+      ordersToPrint = input;
+    } else if (input) {
+      ordersToPrint = [input];
     } else {
       // Bulk print logic
       let filteredOrders = orders;
@@ -462,57 +521,74 @@ export default function Admin() {
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
-    const labelsHtml = ordersToPrint
-      .map((order) => {
-        const getMeta = (key: string, altKey?: string) =>
-          order.metadata[key] || (altKey ? order.metadata[altKey] : undefined);
+    // Generate label HTML for each order
+    const labelElements = ordersToPrint.map((order) => {
+      const getMeta = (key: string, altKey?: string) =>
+        order.metadata[key] || (altKey ? order.metadata[altKey] : undefined);
 
-        const recipientFirstName = getMeta("recipientFirstName");
-        const recipientLastName = getMeta("recipientLastName");
-        const recipientName =
-          recipientFirstName && recipientLastName
-            ? `${recipientFirstName} ${recipientLastName}`
-            : getMeta("recipientName", "recipient_name") || "(Pas de nom)";
-        const name = getMeta("name") || "Quelqu'un";
-        const isAnonymous = getMeta("isAnonymous", "is_anonymous");
-        const message = getMeta("message") || "";
-        const tulipType = getMeta("tulipType", "tulip_type") || "rouge";
-        const formation = getMeta("formation") || "";
+      const recipientFirstName = getMeta("recipientFirstName");
+      const recipientLastName = getMeta("recipientLastName");
+      const recipientName =
+        recipientFirstName && recipientLastName
+          ? `${recipientFirstName} ${recipientLastName}`
+          : getMeta("recipientName", "recipient_name") || "(Pas de nom)";
+      const name = getMeta("name") || "Quelqu'un";
+      const isAnonymous = getMeta("isAnonymous", "is_anonymous");
+      const message = getMeta("message") || "";
+      const tulipType = getMeta("tulipType", "tulip_type") || "rouge";
+      const formation = getMeta("formation") || "";
 
-        const tulipEmoji =
-          tulipType === "rose" ? "🌸" : tulipType === "blanche" ? "🤍" : "❤️";
-        const displaySender =
-          isAnonymous === "true" ? "Un admirateur secret" : name;
+      const tulipEmoji =
+        tulipType === "rose" ? "🌸" : tulipType === "blanche" ? "🤍" : "❤️";
+      const displaySender =
+        isAnonymous === "true" ? "Un admirateur secret" : name;
 
-        const nameLength = recipientName.length;
-        let nameSize = "38px";
-        if (nameLength > 15) nameSize = "32px";
-        if (nameLength > 25) nameSize = "26px";
-        if (nameLength > 35) nameSize = "22px";
+      const nameLength = recipientName.length;
+      let nameSize = "38px";
+      if (nameLength > 15) nameSize = "32px";
+      if (nameLength > 25) nameSize = "26px";
+      if (nameLength > 35) nameSize = "22px";
 
-        const msgLength = message.length;
-        let msgSize = "24px";
-        if (msgLength > 50) msgSize = "20px";
-        if (msgLength > 100) msgSize = "16px";
-        if (msgLength > 200) msgSize = "14px";
+      const msgLength = message.length;
+      let msgSize = "24px";
+      if (msgLength > 50) msgSize = "20px";
+      if (msgLength > 100) msgSize = "16px";
+      if (msgLength > 200) msgSize = "14px";
 
-        return `
-          <div class="label">
-            <div class="tulip-emoji">${tulipEmoji}</div>
-            <div class="recipient">
-              <span class="label-text">Pour</span>
-              <span class="name" style="font-size: ${nameSize}">${recipientName}</span>
-              ${formation ? `<span class="formation">${formation}</span>` : ""}
-            </div>
-            ${message ? `<div class="message" style="font-size: ${msgSize}">${message}</div>` : ""}
-            <div class="sender">
-              <span class="label-text">De la part de</span>
-              <span class="sender-name">${displaySender}</span>
-            </div>
+      return `
+        <div class="label">
+          <div class="tulip-emoji">${tulipEmoji}</div>
+          <div class="recipient">
+            <span class="label-text">Pour</span>
+            <span class="name" style="font-size: ${nameSize}">${recipientName}</span>
+            ${formation ? `<span class="formation">${formation}</span>` : ""}
           </div>
-        `;
-      })
-      .join("");
+          ${message ? `<div class="message" style="font-size: ${msgSize}">${message}</div>` : ""}
+          <div class="sender">
+            <span class="label-text">De la part de</span>
+            <span class="sender-name">${displaySender}</span>
+          </div>
+        </div>
+      `;
+    });
+
+    // Group labels into pages of 4
+    const pages: string[] = [];
+    for (let i = 0; i < labelElements.length; i += 4) {
+      const pageLabels = labelElements.slice(i, i + 4);
+      // Add empty placeholders if last page has fewer than 4 labels
+      while (pageLabels.length < 4) {
+        pageLabels.push('<div class="label empty"></div>');
+      }
+      const isLastPage = i + 4 >= labelElements.length;
+      pages.push(`
+        <div class="page${isLastPage ? "" : " page-break"}">
+          ${pageLabels.join("")}
+        </div>
+      `);
+    }
+
+    const labelsHtml = pages.join("");
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -525,45 +601,58 @@ export default function Admin() {
         <style>
           @page {
             size: A4;
-            margin: 0;
+            margin: 10mm;
           }
           * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
           }
-          body {
+          html, body {
+            width: 100%;
+            height: 100%;
             font-family: 'Caveat', cursive;
+          }
+          .page {
             width: 190mm;
-            height: 250mm;
-            margin: 15mm auto;
+            height: 277mm;
+            margin: 0 auto;
             display: grid;
             grid-template-columns: 1fr 1fr;
             grid-template-rows: 1fr 1fr;
-            gap: 10mm;
+            gap: 5mm;
+            padding: 0;
+          }
+          .page-break {
+            page-break-after: always;
           }
           .label {
             border: 2px dashed #ccc;
-            padding: 10mm;
+            padding: 8mm;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             text-align: center;
-            gap: 12px;
+            gap: 8px;
             position: relative;
             overflow: hidden;
             height: 100%;
-            page-break-inside: avoid;
+            min-height: 0;
+          }
+          .label.empty {
+            border: none;
           }
           .tulip-emoji {
-            font-size: 56px;
-            margin-bottom: 8px;
+            font-size: 48px;
+            margin-bottom: 4px;
+            flex-shrink: 0;
           }
           .recipient {
             display: flex;
             flex-direction: column;
             gap: 4px;
+            flex-shrink: 0;
           }
           .label-text {
             font-family: 'Segoe UI', sans-serif;
@@ -582,10 +671,10 @@ export default function Admin() {
           }
           .formation {
             font-family: 'Segoe UI', sans-serif;
-            font-size: 14px;
+            font-size: 12px;
             color: #666;
             background: #f5f5f5;
-            padding: 4px 12px;
+            padding: 3px 10px;
             border-radius: 20px;
             margin-top: 4px;
             font-weight: 500;
@@ -593,31 +682,39 @@ export default function Admin() {
             text-align: center;
           }
           .message {
-            font-size: 24px;
+            font-size: 20px;
             font-weight: 400;
             color: #444;
-            max-width: 90%;
-            line-height: 1.4;
-            margin: 12px 0;
+            max-width: 95%;
+            line-height: 1.3;
+            margin: 8px 0;
             padding: 0;
             word-break: break-word;
             overflow-wrap: break-word;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
           }
           .sender {
             margin-top: auto;
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 2px;
+            flex-shrink: 0;
           }
           .sender-name {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 500;
             color: #333;
           }
           @media print {
-            body {
+            html, body {
               -webkit-print-color-adjust: exact;
               print-color-adjust: exact;
+            }
+            .page {
+              margin: 0 auto;
             }
           }
         </style>
@@ -872,6 +969,81 @@ export default function Admin() {
     {} as Record<string, number>,
   );
 
+  // Top buyers (by sender name)
+  const buyerStats = orders.reduce(
+    (acc, order) => {
+      const senderName = (order.metadata.name || "Anonyme").trim();
+      if (senderName && senderName !== "Anonyme") {
+        acc[senderName] = (acc[senderName] || 0) + 1;
+      }
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
+  const topBuyers = Object.entries(buyerStats)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3);
+
+  // Top recipients
+  const recipientStats = orders.reduce(
+    (acc, order) => {
+      const firstName = order.metadata.recipientFirstName;
+      const lastName = order.metadata.recipientLastName;
+      const recipientName = (
+        firstName && lastName
+          ? `${firstName} ${lastName}`
+          : order.metadata.recipientName || order.metadata.recipient_name || ""
+      ).trim();
+      if (recipientName) {
+        acc[recipientName] = (acc[recipientName] || 0) + 1;
+      }
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
+  const topRecipients = Object.entries(recipientStats)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3);
+
+  // Group orders by recipient for easier delivery
+  const groupedOrders = orders.reduce(
+    (acc, order) => {
+      const firstName = order.metadata.recipientFirstName;
+      const lastName = order.metadata.recipientLastName;
+      const recipientName = (
+        firstName && lastName
+          ? `${firstName} ${lastName}`
+          : order.metadata.recipientName ||
+            order.metadata.recipient_name ||
+            "Inconnu"
+      ).trim();
+      if (!acc[recipientName]) {
+        acc[recipientName] = [];
+      }
+      acc[recipientName].push(order);
+      return acc;
+    },
+    {} as Record<string, Order[]>,
+  );
+
+  // Sort groups by number of orders (descending)
+  const sortedRecipientGroups = Object.entries(groupedOrders).sort(
+    (a, b) => b[1].length - a[1].length,
+  );
+
+  // Toggle recipient expansion
+  const toggleRecipientExpansion = (recipient: string) => {
+    setExpandedSenders((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(recipient)) {
+        newSet.delete(recipient);
+      } else {
+        newSet.add(recipient);
+      }
+      return newSet;
+    });
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100">
       {/* First-time disclaimer dialog */}
@@ -925,6 +1097,84 @@ export default function Admin() {
               className="w-full bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600"
             >
               J'ai compris et j'accepte
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Leaderboard Dialog */}
+      <Dialog
+        open={showLeaderboard !== null}
+        onOpenChange={() => setShowLeaderboard(null)}
+      >
+        <DialogContent className="sm:max-w-md max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span>{showLeaderboard === "buyers" ? "🛒" : "💐"}</span>
+              {showLeaderboard === "buyers"
+                ? "Classement Acheteurs"
+                : "Classement Destinataires"}
+            </DialogTitle>
+            <DialogDescription>
+              {showLeaderboard === "buyers"
+                ? "Toutes les personnes ayant acheté des tulipes"
+                : "Toutes les personnes ayant reçu des tulipes"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[50vh] overflow-y-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12">#</TableHead>
+                  <TableHead>Nom</TableHead>
+                  <TableHead className="text-right">Tulipes</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(showLeaderboard === "buyers"
+                  ? Object.entries(buyerStats).sort((a, b) => b[1] - a[1])
+                  : Object.entries(recipientStats).sort((a, b) => b[1] - a[1])
+                ).map(([name, count], index) => (
+                  <TableRow
+                    key={name}
+                    className={index < 3 ? "bg-amber-50/50" : ""}
+                  >
+                    <TableCell className="font-medium">
+                      {index === 0
+                        ? "🥇"
+                        : index === 1
+                          ? "🥈"
+                          : index === 2
+                            ? "🥉"
+                            : index + 1}
+                    </TableCell>
+                    <TableCell className={index < 3 ? "font-semibold" : ""}>
+                      {name}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Badge
+                        variant="secondary"
+                        className={
+                          index === 0
+                            ? "bg-yellow-100 text-yellow-800"
+                            : index === 1
+                              ? "bg-gray-200 text-gray-800"
+                              : index === 2
+                                ? "bg-amber-100 text-amber-800"
+                                : ""
+                        }
+                      >
+                        {count} 🌷
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowLeaderboard(null)} className="w-full">
+              Fermer
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1106,6 +1356,183 @@ export default function Admin() {
           </CardContent>
         </Card>
 
+        {/* PODIUMS */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Top Buyers Podium */}
+          <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+            <CardHeader className="pb-2 sm:pb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                    <span>🛒</span> Top Acheteurs
+                  </CardTitle>
+                  <CardDescription className="text-xs sm:text-sm">
+                    Les personnes ayant acheté le plus de tulipes
+                  </CardDescription>
+                </div>
+                {Object.keys(buyerStats).length > 3 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-primary hover:text-primary/80"
+                    onClick={() => setShowLeaderboard("buyers")}
+                  >
+                    Voir tout →
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {topBuyers.length > 0 ? (
+                <div className="flex items-end justify-center gap-2 sm:gap-4">
+                  {/* 2nd place */}
+                  {topBuyers[1] && (
+                    <div className="flex flex-col items-center">
+                      <div className="text-2xl sm:text-3xl mb-1">🥈</div>
+                      <div className="bg-gradient-to-b from-gray-300 to-gray-400 rounded-t-lg w-16 sm:w-20 h-16 sm:h-20 flex items-center justify-center shadow-md">
+                        <span className="text-xl sm:text-2xl font-bold text-white">
+                          {topBuyers[1][1]}
+                        </span>
+                      </div>
+                      <p
+                        className="text-xs sm:text-sm font-medium text-center mt-2 max-w-[80px] sm:max-w-[100px] truncate"
+                        title={topBuyers[1][0]}
+                      >
+                        {topBuyers[1][0]}
+                      </p>
+                    </div>
+                  )}
+                  {/* 1st place */}
+                  {topBuyers[0] && (
+                    <div className="flex flex-col items-center">
+                      <div className="text-3xl sm:text-4xl mb-1">🥇</div>
+                      <div className="bg-gradient-to-b from-yellow-400 to-amber-500 rounded-t-lg w-20 sm:w-24 h-24 sm:h-28 flex items-center justify-center shadow-lg">
+                        <span className="text-2xl sm:text-3xl font-bold text-white">
+                          {topBuyers[0][1]}
+                        </span>
+                      </div>
+                      <p
+                        className="text-sm sm:text-base font-semibold text-center mt-2 max-w-[90px] sm:max-w-[120px] truncate"
+                        title={topBuyers[0][0]}
+                      >
+                        {topBuyers[0][0]}
+                      </p>
+                    </div>
+                  )}
+                  {/* 3rd place */}
+                  {topBuyers[2] && (
+                    <div className="flex flex-col items-center">
+                      <div className="text-xl sm:text-2xl mb-1">🥉</div>
+                      <div className="bg-gradient-to-b from-amber-600 to-amber-700 rounded-t-lg w-14 sm:w-16 h-12 sm:h-14 flex items-center justify-center shadow-md">
+                        <span className="text-lg sm:text-xl font-bold text-white">
+                          {topBuyers[2][1]}
+                        </span>
+                      </div>
+                      <p
+                        className="text-xs font-medium text-center mt-2 max-w-[70px] sm:max-w-[80px] truncate"
+                        title={topBuyers[2][0]}
+                      >
+                        {topBuyers[2][0]}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Aucune donnée disponible
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Top Recipients Podium */}
+          <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+            <CardHeader className="pb-2 sm:pb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                    <span>💐</span> Top Destinataires
+                  </CardTitle>
+                  <CardDescription className="text-xs sm:text-sm">
+                    Les personnes ayant reçu le plus de tulipes
+                  </CardDescription>
+                </div>
+                {Object.keys(recipientStats).length > 3 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-primary hover:text-primary/80"
+                    onClick={() => setShowLeaderboard("recipients")}
+                  >
+                    Voir tout →
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {topRecipients.length > 0 ? (
+                <div className="flex items-end justify-center gap-2 sm:gap-4">
+                  {/* 2nd place */}
+                  {topRecipients[1] && (
+                    <div className="flex flex-col items-center">
+                      <div className="text-2xl sm:text-3xl mb-1">🥈</div>
+                      <div className="bg-gradient-to-b from-gray-300 to-gray-400 rounded-t-lg w-16 sm:w-20 h-16 sm:h-20 flex items-center justify-center shadow-md">
+                        <span className="text-xl sm:text-2xl font-bold text-white">
+                          {topRecipients[1][1]}
+                        </span>
+                      </div>
+                      <p
+                        className="text-xs sm:text-sm font-medium text-center mt-2 max-w-[80px] sm:max-w-[100px] truncate"
+                        title={topRecipients[1][0]}
+                      >
+                        {topRecipients[1][0]}
+                      </p>
+                    </div>
+                  )}
+                  {/* 1st place */}
+                  {topRecipients[0] && (
+                    <div className="flex flex-col items-center">
+                      <div className="text-3xl sm:text-4xl mb-1">🥇</div>
+                      <div className="bg-gradient-to-b from-yellow-400 to-amber-500 rounded-t-lg w-20 sm:w-24 h-24 sm:h-28 flex items-center justify-center shadow-lg">
+                        <span className="text-2xl sm:text-3xl font-bold text-white">
+                          {topRecipients[0][1]}
+                        </span>
+                      </div>
+                      <p
+                        className="text-sm sm:text-base font-semibold text-center mt-2 max-w-[90px] sm:max-w-[120px] truncate"
+                        title={topRecipients[0][0]}
+                      >
+                        {topRecipients[0][0]}
+                      </p>
+                    </div>
+                  )}
+                  {/* 3rd place */}
+                  {topRecipients[2] && (
+                    <div className="flex flex-col items-center">
+                      <div className="text-xl sm:text-2xl mb-1">🥉</div>
+                      <div className="bg-gradient-to-b from-amber-600 to-amber-700 rounded-t-lg w-14 sm:w-16 h-12 sm:h-14 flex items-center justify-center shadow-md">
+                        <span className="text-lg sm:text-xl font-bold text-white">
+                          {topRecipients[2][1]}
+                        </span>
+                      </div>
+                      <p
+                        className="text-xs font-medium text-center mt-2 max-w-[70px] sm:max-w-[80px] truncate"
+                        title={topRecipients[2][0]}
+                      >
+                        {topRecipients[2][0]}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Aucune donnée disponible
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
         {/* PRINT CONTROLS */}
         <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
           <CardHeader className="pb-2 sm:pb-4">
@@ -1166,6 +1593,32 @@ export default function Admin() {
                   )}
                 </CardDescription>
               </div>
+              <div className="flex bg-slate-100 p-1 rounded-lg">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={`${
+                    viewMode === "grouped"
+                      ? "bg-white text-slate-900 shadow-sm hover:bg-gray-50"
+                      : "text-slate-500 hover:text-slate-900 hover:bg-slate-200/50"
+                  } flex-1 sm:flex-none transition-all duration-200`}
+                  onClick={() => setViewMode("grouped")}
+                >
+                  👤 Par destinataire
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={`${
+                    viewMode === "flat"
+                      ? "bg-white text-slate-900 shadow-sm hover:bg-gray-50"
+                      : "text-slate-500 hover:text-slate-900 hover:bg-slate-200/50"
+                  } flex-1 sm:flex-none transition-all duration-200`}
+                  onClick={() => setViewMode("flat")}
+                >
+                  📜 Chronologique
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -1206,250 +1659,698 @@ export default function Admin() {
               <>
                 {/* Mobile Card View */}
                 <div className="lg:hidden space-y-3">
-                  {orders.map((order) => (
-                    <OrderCard
-                      key={order.id}
-                      order={order}
-                      toggleStatus={toggleStatus}
-                      onDelete={(id) => deleteOrder(id)}
-                      onPrint={(order) => printLabels(order)}
-                    />
-                  ))}
+                  {viewMode === "grouped"
+                    ? // Grouped by recipient
+                      sortedRecipientGroups.map(
+                        ([recipientName, recipientOrders]) => {
+                          const isExpanded = expandedSenders.has(recipientName);
+                          const pendingInGroup = recipientOrders.filter(
+                            (o: Order) =>
+                              o.metadata.deliveryStatus !== "delivered",
+                          ).length;
+                          return (
+                            <div
+                              key={recipientName}
+                              className="bg-white rounded-xl border shadow-sm overflow-hidden"
+                            >
+                              {/* Recipient Header */}
+                              <div className="w-full flex items-center justify-between bg-gradient-to-r from-slate-100 to-slate-50 hover:from-slate-200 hover:to-slate-100 transition-colors">
+                                <button
+                                  onClick={() =>
+                                    toggleRecipientExpansion(recipientName)
+                                  }
+                                  className="flex-1 px-4 py-3 flex items-center justify-between text-left"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-xl">🎁</span>
+                                    <div>
+                                      <p className="font-semibold text-gray-900">
+                                        {recipientName}
+                                      </p>
+                                      <p className="text-xs text-muted-foreground">
+                                        {recipientOrders.length} tulipe
+                                        {recipientOrders.length > 1
+                                          ? "s"
+                                          : ""}{" "}
+                                        à recevoir
+                                        {pendingInGroup > 0 && (
+                                          <span className="ml-1 text-amber-600 font-medium">
+                                            ({pendingInGroup} à livrer)
+                                          </span>
+                                        )}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </button>
+
+                                <div className="flex items-center gap-2 pr-4">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 gap-1 bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      printLabels(recipientOrders);
+                                    }}
+                                    title="Imprimer toutes les étiquettes du groupe"
+                                  >
+                                    <span className="text-xs">🖨️</span>
+                                  </Button>
+
+                                  <button
+                                    onClick={() =>
+                                      toggleRecipientExpansion(recipientName)
+                                    }
+                                    className="flex items-center gap-2"
+                                  >
+                                    <Badge
+                                      variant="secondary"
+                                      className="bg-primary/10 text-primary"
+                                    >
+                                      {recipientOrders.length}
+                                    </Badge>
+                                    <span
+                                      className={`transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                                    >
+                                      ▼
+                                    </span>
+                                  </button>
+                                </div>
+                              </div>
+                              {/* Orders in group */}
+                              {isExpanded && (
+                                <div className="p-2 space-y-2 bg-slate-50/50">
+                                  {recipientOrders.map((order: Order) => (
+                                    <OrderCard
+                                      key={order.id}
+                                      order={order}
+                                      toggleStatus={toggleStatus}
+                                      onDelete={(id) => deleteOrder(id)}
+                                      onPrint={(order) => printLabels(order)}
+                                    />
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        },
+                      )
+                    : // Flat chronological view
+                      orders.map((order) => (
+                        <OrderCard
+                          key={order.id}
+                          order={order}
+                          toggleStatus={toggleStatus}
+                          onDelete={(id) => deleteOrder(id)}
+                          onPrint={(order) => printLabels(order)}
+                        />
+                      ))}
                 </div>
 
-                {/* Desktop Table View */}
-                <div className="hidden lg:block rounded-lg border overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-slate-50/50">
-                        <TableHead className="w-[100px] font-semibold">
-                          Statut
-                        </TableHead>
-                        <TableHead className="w-[130px] font-semibold">
-                          Date
-                        </TableHead>
-                        <TableHead className="w-[90px] font-semibold">
-                          Fleur
-                        </TableHead>
-                        <TableHead className="font-semibold">Pour</TableHead>
-                        <TableHead className="font-semibold">De</TableHead>
-                        <TableHead className="max-w-[280px] font-semibold">
-                          Message
-                        </TableHead>
-                        <TableHead className="text-right font-semibold w-[140px]">
-                          Action
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {orders.map((order) => {
-                        const getMeta = (key: string, altKey?: string) =>
-                          order.metadata[key] ||
-                          (altKey ? order.metadata[altKey] : undefined);
-
-                        const fmt = getMeta("formation") || "Inconnu";
-                        const deliveryStatus =
-                          getMeta("deliveryStatus", "delivery_status") ||
-                          "pending";
-                        const recipientFirstName =
-                          getMeta("recipientFirstName");
-                        const recipientLastName = getMeta("recipientLastName");
-                        const recipientName =
-                          recipientFirstName && recipientLastName
-                            ? `${recipientFirstName} ${recipientLastName}`
-                            : getMeta("recipientName", "recipient_name");
-                        const name = getMeta("name");
-                        const isAnonymous = getMeta(
-                          "isAnonymous",
-                          "is_anonymous",
-                        );
-                        const message = getMeta("message");
-                        const tulipType =
-                          getMeta("tulipType", "tulip_type") || "rouge";
-
-                        const config = FORMATION_CONFIG[fmt] || DEFAULT_CONFIG;
-                        let tulipBadgeColor = "bg-gray-100 text-gray-800";
-                        let tulipLabel = "Rouge";
-                        let tulipEmoji = "🌷";
-                        if (tulipType === "rose") {
-                          tulipBadgeColor =
-                            "bg-pink-100 text-pink-800 border-pink-200";
-                          tulipLabel = "Rose";
-                          tulipEmoji = "🌸";
-                        } else if (tulipType === "blanche") {
-                          tulipBadgeColor =
-                            "bg-slate-100 text-slate-800 border-slate-200";
-                          tulipLabel = "Blanche";
-                          tulipEmoji = "🤍";
-                        } else {
-                          tulipBadgeColor =
-                            "bg-red-100 text-red-800 border-red-200";
-                          tulipLabel = "Rouge";
-                          tulipEmoji = "❤️";
-                        }
-
-                        return (
-                          <TableRow
-                            key={order.id}
-                            className={`transition-colors ${
-                              deliveryStatus === "delivered"
-                                ? "bg-green-50/40"
-                                : "hover:bg-slate-50/50"
-                            }`}
-                          >
-                            <TableCell>
-                              <Badge
-                                variant={
-                                  deliveryStatus === "delivered"
-                                    ? "default"
-                                    : "secondary"
-                                }
-                                className={
-                                  deliveryStatus === "delivered"
-                                    ? "bg-green-600 hover:bg-green-700 shadow-sm"
-                                    : "bg-amber-100 text-amber-800 hover:bg-amber-200 shadow-sm"
-                                }
-                              >
-                                {deliveryStatus === "delivered"
-                                  ? "✓ Livrée"
-                                  : "⏳ À faire"}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="whitespace-nowrap">
-                              <div className="font-medium text-sm">
-                                {new Date(
-                                  order.created * 1000,
-                                ).toLocaleDateString("fr-FR", {
-                                  day: "numeric",
-                                  month: "short",
-                                })}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {new Date(
-                                  order.created * 1000,
-                                ).toLocaleTimeString([], {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                variant="outline"
-                                className={`border ${tulipBadgeColor} gap-1`}
-                              >
-                                <span>{tulipEmoji}</span>
-                                {tulipLabel}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="font-medium text-sm">
-                                {recipientName || "(Pas de nom)"}
-                              </div>
-                              {fmt && fmt !== "Inconnu" && (
-                                <Badge
-                                  variant="outline"
-                                  className={`mt-1 text-[10px] font-medium px-2 py-0.5 h-auto gap-1 border ${config.border} ${config.bg} ${config.text}`}
-                                >
-                                  {config.icon && (
-                                    <img
-                                      src={config.icon}
-                                      alt=""
-                                      className="w-3 h-3 object-contain"
-                                    />
-                                  )}
-                                  {fmt.replace("BUT ", "")}
-                                </Badge>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <div className="font-medium text-sm">
-                                {name || "Inconnu"}
-                                {isAnonymous === "true" && (
-                                  <span className="ml-1 text-[10px] uppercase text-amber-600 font-bold bg-amber-50 px-1 rounded">
-                                    Anon
-                                  </span>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell
-                              className="max-w-[280px]"
-                              title={message}
+                {/* Desktop View */}
+                <div className="hidden lg:block">
+                  {viewMode === "grouped" ? (
+                    // Grouped Desktop View
+                    <div className="space-y-4">
+                      {sortedRecipientGroups.map(
+                        ([recipientName, recipientOrders]) => {
+                          const isExpanded = expandedSenders.has(recipientName);
+                          const pendingInGroup = recipientOrders.filter(
+                            (o: Order) =>
+                              o.metadata.deliveryStatus !== "delivered",
+                          ).length;
+                          const deliveredInGroup =
+                            recipientOrders.length - pendingInGroup;
+                          return (
+                            <div
+                              key={recipientName}
+                              className="bg-white rounded-xl border shadow-sm overflow-hidden"
                             >
-                              {message ? (
-                                <div className="bg-slate-50 p-2 rounded-lg text-xs italic text-slate-600 border border-slate-100 line-clamp-2">
-                                  "{message}"
-                                </div>
-                              ) : (
-                                <span className="text-muted-foreground text-xs italic">
-                                  Aucun message
-                                </span>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => printLabels(order)}
-                                  title="Imprimer"
-                                >
-                                  🖨️
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant={
-                                    deliveryStatus === "delivered"
-                                      ? "outline"
-                                      : "default"
-                                  }
-                                  className={
-                                    deliveryStatus === "delivered"
-                                      ? "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
-                                      : "bg-gradient-to-r from-primary to-primary/80 text-white hover:opacity-90 shadow-sm"
-                                  }
+                              {/* Recipient Header */}
+                              <div className="w-full px-6 py-4 flex items-center justify-between bg-gradient-to-r from-slate-100 to-slate-50 hover:from-slate-200 hover:to-slate-100 transition-colors">
+                                <button
                                   onClick={() =>
-                                    toggleStatus(
-                                      order.id,
-                                      deliveryStatus || "pending",
-                                    )
+                                    toggleRecipientExpansion(recipientName)
                                   }
+                                  className="flex-1 flex items-center gap-4 text-left"
                                 >
-                                  {deliveryStatus === "delivered"
-                                    ? "Annuler"
-                                    : "Livrer"}
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="text-red-400 hover:text-red-700 hover:bg-red-50"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (
-                                      window.confirm(
-                                        "Supprimer cette commande ?",
-                                      )
-                                    ) {
-                                      if (
-                                        window.confirm(
-                                          "Sûr et certain ? C'est irréversible.",
-                                        )
-                                      ) {
-                                        deleteOrder(order.id);
-                                      }
+                                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-2xl">
+                                    🎁
+                                  </div>
+                                  <div>
+                                    <p className="font-bold text-lg text-gray-900">
+                                      {recipientName}
+                                    </p>
+                                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                                      <span>
+                                        {recipientOrders.length} tulipe
+                                        {recipientOrders.length > 1
+                                          ? "s"
+                                          : ""}{" "}
+                                        à recevoir
+                                      </span>
+                                      {pendingInGroup > 0 && (
+                                        <Badge
+                                          variant="secondary"
+                                          className="bg-amber-100 text-amber-700"
+                                        >
+                                          {pendingInGroup} à livrer
+                                        </Badge>
+                                      )}
+                                      {deliveredInGroup > 0 && (
+                                        <Badge
+                                          variant="secondary"
+                                          className="bg-green-100 text-green-700"
+                                        >
+                                          {deliveredInGroup} livrée
+                                          {deliveredInGroup > 1 ? "s" : ""}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                </button>
+
+                                <div className="flex items-center gap-4">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="gap-2 bg-white border-slate-200 hover:bg-slate-50 text-slate-700 shadow-sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      printLabels(recipientOrders);
+                                    }}
+                                  >
+                                    <span>🖨️</span> Tout imprimer
+                                  </Button>
+
+                                  <button
+                                    onClick={() =>
+                                      toggleRecipientExpansion(recipientName)
                                     }
-                                  }}
-                                  title="Supprimer"
-                                >
-                                  🗑️
-                                </Button>
+                                    className="flex items-center gap-3"
+                                  >
+                                    <div className="text-3xl font-bold text-primary/30">
+                                      {recipientOrders.length}
+                                    </div>
+                                    <span
+                                      className={`text-xl transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                                    >
+                                      ▼
+                                    </span>
+                                  </button>
+                                </div>
                               </div>
-                            </TableCell>
+                              {/* Orders Table in group */}
+                              {isExpanded && (
+                                <div className="border-t">
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow className="bg-slate-50/50">
+                                        <TableHead className="w-[100px] font-semibold">
+                                          Statut
+                                        </TableHead>
+                                        <TableHead className="w-[130px] font-semibold">
+                                          Date
+                                        </TableHead>
+                                        <TableHead className="w-[90px] font-semibold">
+                                          Fleur
+                                        </TableHead>
+                                        <TableHead className="font-semibold">
+                                          De
+                                        </TableHead>
+                                        <TableHead className="max-w-[280px] font-semibold">
+                                          Message
+                                        </TableHead>
+                                        <TableHead className="text-right font-semibold w-[140px]">
+                                          Action
+                                        </TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {recipientOrders.map((order: Order) => {
+                                        const getMeta = (
+                                          key: string,
+                                          altKey?: string,
+                                        ) =>
+                                          order.metadata[key] ||
+                                          (altKey
+                                            ? order.metadata[altKey]
+                                            : undefined);
+
+                                        const fmt =
+                                          getMeta("formation") || "Inconnu";
+                                        const deliveryStatus =
+                                          getMeta(
+                                            "deliveryStatus",
+                                            "delivery_status",
+                                          ) || "pending";
+                                        const recipientFirstName =
+                                          getMeta("recipientFirstName");
+                                        const recipientLastName =
+                                          getMeta("recipientLastName");
+                                        const recipientName =
+                                          recipientFirstName &&
+                                          recipientLastName
+                                            ? `${recipientFirstName} ${recipientLastName}`
+                                            : getMeta(
+                                                "recipientName",
+                                                "recipient_name",
+                                              );
+                                        const message = getMeta("message");
+                                        const tulipType =
+                                          getMeta("tulipType", "tulip_type") ||
+                                          "rouge";
+
+                                        const config =
+                                          FORMATION_CONFIG[fmt] ||
+                                          DEFAULT_CONFIG;
+                                        let tulipBadgeColor =
+                                          "bg-gray-100 text-gray-800";
+                                        let tulipLabel = "Rouge";
+                                        let tulipEmoji = "🌷";
+                                        if (tulipType === "rose") {
+                                          tulipBadgeColor =
+                                            "bg-pink-100 text-pink-800 border-pink-200";
+                                          tulipLabel = "Rose";
+                                          tulipEmoji = "🌸";
+                                        } else if (tulipType === "blanche") {
+                                          tulipBadgeColor =
+                                            "bg-slate-100 text-slate-800 border-slate-200";
+                                          tulipLabel = "Blanche";
+                                          tulipEmoji = "🤍";
+                                        } else {
+                                          tulipBadgeColor =
+                                            "bg-red-100 text-red-800 border-red-200";
+                                          tulipLabel = "Rouge";
+                                          tulipEmoji = "❤️";
+                                        }
+
+                                        return (
+                                          <TableRow
+                                            key={order.id}
+                                            className={`transition-colors ${
+                                              deliveryStatus === "delivered"
+                                                ? "bg-green-50/40"
+                                                : "hover:bg-slate-50/50"
+                                            }`}
+                                          >
+                                            <TableCell>
+                                              <Badge
+                                                variant={
+                                                  deliveryStatus === "delivered"
+                                                    ? "default"
+                                                    : "secondary"
+                                                }
+                                                className={
+                                                  deliveryStatus === "delivered"
+                                                    ? "bg-green-600 hover:bg-green-700 shadow-sm"
+                                                    : "bg-amber-100 text-amber-800 hover:bg-amber-200 shadow-sm"
+                                                }
+                                              >
+                                                {deliveryStatus === "delivered"
+                                                  ? "✓ Livrée"
+                                                  : "⏳ À faire"}
+                                              </Badge>
+                                            </TableCell>
+                                            <TableCell className="whitespace-nowrap">
+                                              <div className="font-medium text-sm">
+                                                {new Date(
+                                                  order.created * 1000,
+                                                ).toLocaleDateString("fr-FR", {
+                                                  day: "numeric",
+                                                  month: "short",
+                                                })}
+                                              </div>
+                                              <div className="text-xs text-muted-foreground">
+                                                {new Date(
+                                                  order.created * 1000,
+                                                ).toLocaleTimeString([], {
+                                                  hour: "2-digit",
+                                                  minute: "2-digit",
+                                                })}
+                                              </div>
+                                            </TableCell>
+                                            <TableCell>
+                                              <Badge
+                                                variant="outline"
+                                                className={`border ${tulipBadgeColor} gap-1`}
+                                              >
+                                                <span>{tulipEmoji}</span>
+                                                {tulipLabel}
+                                              </Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                              <div className="font-medium text-sm">
+                                                {recipientName ||
+                                                  "(Pas de nom)"}
+                                              </div>
+                                              {fmt && fmt !== "Inconnu" && (
+                                                <Badge
+                                                  variant="outline"
+                                                  className={`mt-1 text-[10px] font-medium px-2 py-0.5 h-auto gap-1 border ${config.border} ${config.bg} ${config.text}`}
+                                                >
+                                                  {config.icon && (
+                                                    <img
+                                                      src={config.icon}
+                                                      alt=""
+                                                      className="w-3 h-3 object-contain"
+                                                    />
+                                                  )}
+                                                  {fmt.replace("BUT ", "")}
+                                                </Badge>
+                                              )}
+                                            </TableCell>
+                                            <TableCell
+                                              className="max-w-[280px]"
+                                              title={message}
+                                            >
+                                              {message ? (
+                                                <div className="bg-slate-50 p-2 rounded-lg text-xs italic text-slate-600 border border-slate-100 line-clamp-2">
+                                                  "{message}"
+                                                </div>
+                                              ) : (
+                                                <span className="text-muted-foreground text-xs italic">
+                                                  Aucun message
+                                                </span>
+                                              )}
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                              <div className="flex justify-end gap-2">
+                                                <Button
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  onClick={() =>
+                                                    printLabels(order)
+                                                  }
+                                                  title="Imprimer"
+                                                >
+                                                  🖨️
+                                                </Button>
+                                                <Button
+                                                  size="sm"
+                                                  variant={
+                                                    deliveryStatus ===
+                                                    "delivered"
+                                                      ? "outline"
+                                                      : "default"
+                                                  }
+                                                  className={
+                                                    deliveryStatus ===
+                                                    "delivered"
+                                                      ? "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                                                      : "bg-gradient-to-r from-primary to-primary/80 text-white hover:opacity-90 shadow-sm"
+                                                  }
+                                                  onClick={() =>
+                                                    toggleStatus(
+                                                      order.id,
+                                                      deliveryStatus ||
+                                                        "pending",
+                                                    )
+                                                  }
+                                                >
+                                                  {deliveryStatus ===
+                                                  "delivered"
+                                                    ? "Annuler"
+                                                    : "Livrer"}
+                                                </Button>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  className="text-red-400 hover:text-red-700 hover:bg-red-50"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (
+                                                      window.confirm(
+                                                        "Supprimer cette commande ?",
+                                                      )
+                                                    ) {
+                                                      if (
+                                                        window.confirm(
+                                                          "Sûr et certain ? C'est irréversible.",
+                                                        )
+                                                      ) {
+                                                        deleteOrder(order.id);
+                                                      }
+                                                    }
+                                                  }}
+                                                  title="Supprimer"
+                                                >
+                                                  🗑️
+                                                </Button>
+                                              </div>
+                                            </TableCell>
+                                          </TableRow>
+                                        );
+                                      })}
+                                    </TableBody>
+                                  </Table>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        },
+                      )}
+                    </div>
+                  ) : (
+                    // Flat Desktop Table View
+                    <div className="rounded-lg border overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-slate-50/50">
+                            <TableHead className="w-[100px] font-semibold">
+                              Statut
+                            </TableHead>
+                            <TableHead className="w-[130px] font-semibold">
+                              Date
+                            </TableHead>
+                            <TableHead className="w-[90px] font-semibold">
+                              Fleur
+                            </TableHead>
+                            <TableHead className="font-semibold">
+                              Pour
+                            </TableHead>
+                            <TableHead className="font-semibold">De</TableHead>
+                            <TableHead className="max-w-[280px] font-semibold">
+                              Message
+                            </TableHead>
+                            <TableHead className="text-right font-semibold w-[140px]">
+                              Action
+                            </TableHead>
                           </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {orders.map((order) => {
+                            const getMeta = (key: string, altKey?: string) =>
+                              order.metadata[key] ||
+                              (altKey ? order.metadata[altKey] : undefined);
+
+                            const fmt = getMeta("formation") || "Inconnu";
+                            const deliveryStatus =
+                              getMeta("deliveryStatus", "delivery_status") ||
+                              "pending";
+                            const recipientFirstName =
+                              getMeta("recipientFirstName");
+                            const recipientLastName =
+                              getMeta("recipientLastName");
+                            const recipientName =
+                              recipientFirstName && recipientLastName
+                                ? `${recipientFirstName} ${recipientLastName}`
+                                : getMeta("recipientName", "recipient_name");
+                            const name = getMeta("name");
+                            const isAnonymous = getMeta(
+                              "isAnonymous",
+                              "is_anonymous",
+                            );
+                            const message = getMeta("message");
+                            const tulipType =
+                              getMeta("tulipType", "tulip_type") || "rouge";
+
+                            const config =
+                              FORMATION_CONFIG[fmt] || DEFAULT_CONFIG;
+                            let tulipBadgeColor = "bg-gray-100 text-gray-800";
+                            let tulipLabel = "Rouge";
+                            let tulipEmoji = "🌷";
+                            if (tulipType === "rose") {
+                              tulipBadgeColor =
+                                "bg-pink-100 text-pink-800 border-pink-200";
+                              tulipLabel = "Rose";
+                              tulipEmoji = "🌸";
+                            } else if (tulipType === "blanche") {
+                              tulipBadgeColor =
+                                "bg-slate-100 text-slate-800 border-slate-200";
+                              tulipLabel = "Blanche";
+                              tulipEmoji = "🤍";
+                            } else {
+                              tulipBadgeColor =
+                                "bg-red-100 text-red-800 border-red-200";
+                              tulipLabel = "Rouge";
+                              tulipEmoji = "❤️";
+                            }
+
+                            return (
+                              <TableRow
+                                key={order.id}
+                                className={`transition-colors ${
+                                  deliveryStatus === "delivered"
+                                    ? "bg-green-50/40"
+                                    : "hover:bg-slate-50/50"
+                                }`}
+                              >
+                                <TableCell>
+                                  <Badge
+                                    variant={
+                                      deliveryStatus === "delivered"
+                                        ? "default"
+                                        : "secondary"
+                                    }
+                                    className={
+                                      deliveryStatus === "delivered"
+                                        ? "bg-green-600 hover:bg-green-700 shadow-sm"
+                                        : "bg-amber-100 text-amber-800 hover:bg-amber-200 shadow-sm"
+                                    }
+                                  >
+                                    {deliveryStatus === "delivered"
+                                      ? "✓ Livrée"
+                                      : "⏳ À faire"}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="whitespace-nowrap">
+                                  <div className="font-medium text-sm">
+                                    {new Date(
+                                      order.created * 1000,
+                                    ).toLocaleDateString("fr-FR", {
+                                      day: "numeric",
+                                      month: "short",
+                                    })}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {new Date(
+                                      order.created * 1000,
+                                    ).toLocaleTimeString([], {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge
+                                    variant="outline"
+                                    className={`border ${tulipBadgeColor} gap-1`}
+                                  >
+                                    <span>{tulipEmoji}</span>
+                                    {tulipLabel}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="font-medium text-sm">
+                                    {recipientName || "(Pas de nom)"}
+                                  </div>
+                                  {fmt && fmt !== "Inconnu" && (
+                                    <Badge
+                                      variant="outline"
+                                      className={`mt-1 text-[10px] font-medium px-2 py-0.5 h-auto gap-1 border ${config.border} ${config.bg} ${config.text}`}
+                                    >
+                                      {config.icon && (
+                                        <img
+                                          src={config.icon}
+                                          alt=""
+                                          className="w-3 h-3 object-contain"
+                                        />
+                                      )}
+                                      {fmt.replace("BUT ", "")}
+                                    </Badge>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="font-medium text-sm">
+                                    {name || "Inconnu"}
+                                    {isAnonymous === "true" && (
+                                      <span className="ml-1 text-[10px] uppercase text-amber-600 font-bold bg-amber-50 px-1 rounded">
+                                        Anon
+                                      </span>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell
+                                  className="max-w-[280px]"
+                                  title={message}
+                                >
+                                  {message ? (
+                                    <div className="bg-slate-50 p-2 rounded-lg text-xs italic text-slate-600 border border-slate-100 line-clamp-2">
+                                      "{message}"
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted-foreground text-xs italic">
+                                      Aucun message
+                                    </span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex justify-end gap-2">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => printLabels(order)}
+                                      title="Imprimer"
+                                    >
+                                      🖨️
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant={
+                                        deliveryStatus === "delivered"
+                                          ? "outline"
+                                          : "default"
+                                      }
+                                      className={
+                                        deliveryStatus === "delivered"
+                                          ? "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                                          : "bg-gradient-to-r from-primary to-primary/80 text-white hover:opacity-90 shadow-sm"
+                                      }
+                                      onClick={() =>
+                                        toggleStatus(
+                                          order.id,
+                                          deliveryStatus || "pending",
+                                        )
+                                      }
+                                    >
+                                      {deliveryStatus === "delivered"
+                                        ? "Annuler"
+                                        : "Livrer"}
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="text-red-400 hover:text-red-700 hover:bg-red-50"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (
+                                          window.confirm(
+                                            "Supprimer cette commande ?",
+                                          )
+                                        ) {
+                                          if (
+                                            window.confirm(
+                                              "Sûr et certain ? C'est irréversible.",
+                                            )
+                                          ) {
+                                            deleteOrder(order.id);
+                                          }
+                                        }
+                                      }}
+                                      title="Supprimer"
+                                    >
+                                      🗑️
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
                 </div>
               </>
             )}
