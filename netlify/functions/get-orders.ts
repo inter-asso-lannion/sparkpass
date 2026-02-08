@@ -44,14 +44,14 @@ export default async (req: Request, context: Context) => {
   }
 
   try {
-    // List last 100 successful payment intents
+    // List last 1000 successful payment intents (increased from 100)
     const paymentIntents = await stripe.paymentIntents.list({
-      limit: 100,
-    });
+      limit: 100, // Stripe API limit per call
+    }).autoPagingToArray({ limit: 1000 });
 
     // Filter for only those that have "tulipType" in metadata (our orders)
     // and exclude deleted ones
-    const orders = paymentIntents.data
+    const orders = paymentIntents
       .filter((pi) => pi.status === 'succeeded' && pi.metadata && pi.metadata.deleted !== 'true')
       .flatMap((pi) => {
         // Check if it's a multi-item order

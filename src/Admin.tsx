@@ -1017,10 +1017,15 @@ export default function Admin() {
             order.metadata.recipient_name ||
             "Inconnu"
       ).trim();
-      if (!acc[recipientName]) {
-        acc[recipientName] = [];
+
+      // Use formation in key to disambiguate people with same name in different departments
+      const formation = order.metadata.formation || "Inconnu";
+      const key = `${recipientName}|${formation}`;
+
+      if (!acc[key]) {
+        acc[key] = [];
       }
-      acc[recipientName].push(order);
+      acc[key].push(order);
       return acc;
     },
     {} as Record<string, Order[]>,
@@ -1662,22 +1667,24 @@ export default function Admin() {
                   {viewMode === "grouped"
                     ? // Grouped by recipient
                       sortedRecipientGroups.map(
-                        ([recipientName, recipientOrders]) => {
-                          const isExpanded = expandedSenders.has(recipientName);
+                        ([groupKey, recipientOrders]) => {
+                          const [recipientName, formation] =
+                            groupKey.split("|");
+                          const isExpanded = expandedSenders.has(groupKey);
                           const pendingInGroup = recipientOrders.filter(
                             (o: Order) =>
                               o.metadata.deliveryStatus !== "delivered",
                           ).length;
                           return (
                             <div
-                              key={recipientName}
+                              key={groupKey}
                               className="bg-white rounded-xl border shadow-sm overflow-hidden"
                             >
                               {/* Recipient Header */}
                               <div className="w-full flex items-center justify-between bg-gradient-to-r from-slate-100 to-slate-50 hover:from-slate-200 hover:to-slate-100 transition-colors">
                                 <button
                                   onClick={() =>
-                                    toggleRecipientExpansion(recipientName)
+                                    toggleRecipientExpansion(groupKey)
                                   }
                                   className="flex-1 px-4 py-3 flex items-center justify-between text-left"
                                 >
@@ -1686,6 +1693,12 @@ export default function Admin() {
                                     <div>
                                       <p className="font-semibold text-gray-900">
                                         {recipientName}
+                                        {formation &&
+                                          formation !== "Inconnu" && (
+                                            <span className="ml-2 text-xs font-normal text-muted-foreground bg-slate-100 px-1.5 py-0.5 rounded-md border border-slate-200">
+                                              {formation.replace("BUT ", "")}
+                                            </span>
+                                          )}
                                       </p>
                                       <p className="text-xs text-muted-foreground">
                                         {recipientOrders.length} tulipe
@@ -1719,7 +1732,7 @@ export default function Admin() {
 
                                   <button
                                     onClick={() =>
-                                      toggleRecipientExpansion(recipientName)
+                                      toggleRecipientExpansion(groupKey)
                                     }
                                     className="flex items-center gap-2"
                                   >
@@ -1773,8 +1786,10 @@ export default function Admin() {
                     // Grouped Desktop View
                     <div className="space-y-4">
                       {sortedRecipientGroups.map(
-                        ([recipientName, recipientOrders]) => {
-                          const isExpanded = expandedSenders.has(recipientName);
+                        ([groupKey, recipientOrders]) => {
+                          const [recipientName, formation] =
+                            groupKey.split("|");
+                          const isExpanded = expandedSenders.has(groupKey);
                           const pendingInGroup = recipientOrders.filter(
                             (o: Order) =>
                               o.metadata.deliveryStatus !== "delivered",
@@ -1783,14 +1798,14 @@ export default function Admin() {
                             recipientOrders.length - pendingInGroup;
                           return (
                             <div
-                              key={recipientName}
+                              key={groupKey}
                               className="bg-white rounded-xl border shadow-sm overflow-hidden"
                             >
                               {/* Recipient Header */}
                               <div className="w-full px-6 py-4 flex items-center justify-between bg-gradient-to-r from-slate-100 to-slate-50 hover:from-slate-200 hover:to-slate-100 transition-colors">
                                 <button
                                   onClick={() =>
-                                    toggleRecipientExpansion(recipientName)
+                                    toggleRecipientExpansion(groupKey)
                                   }
                                   className="flex-1 flex items-center gap-4 text-left"
                                 >
@@ -1800,6 +1815,11 @@ export default function Admin() {
                                   <div>
                                     <p className="font-bold text-lg text-gray-900">
                                       {recipientName}
+                                      {formation && formation !== "Inconnu" && (
+                                        <span className="ml-2 text-sm font-normal text-muted-foreground bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                                          {formation.replace("BUT ", "")}
+                                        </span>
+                                      )}
                                     </p>
                                     <div className="flex items-center gap-3 text-sm text-muted-foreground">
                                       <span>
@@ -1845,7 +1865,7 @@ export default function Admin() {
 
                                   <button
                                     onClick={() =>
-                                      toggleRecipientExpansion(recipientName)
+                                      toggleRecipientExpansion(groupKey)
                                     }
                                     className="flex items-center gap-3"
                                   >
