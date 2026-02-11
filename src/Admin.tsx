@@ -2021,7 +2021,7 @@ export default function Admin() {
                                           tulipBadgeColor =
                                             "bg-red-100 text-red-800 border-red-200";
                                           tulipLabel = "Rouge";
-                                          tulipEmoji = "❤️";
+                                          tulipEmoji = "🛑";
                                         }
 
                                         return (
