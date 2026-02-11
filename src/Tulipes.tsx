@@ -88,7 +88,7 @@ const FORMATION_ICONS: Record<string, string> = {
 };
 function Tulipes() {
   // Date limite : 12 février 2026 à 23:59:59
-  const expirationDate = new Date("2026-02-12T23:59:59");
+  const expirationDate = new Date("2026-02-12T11:00:00");
   const isExpired = new Date() > expirationDate;
 
   // Si la page est expirée, afficher un message d'erreur
