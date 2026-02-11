@@ -1577,6 +1577,65 @@ export default function Admin() {
           </CardContent>
         </Card>
 
+        {/* BATCH PRINT BY FORMATION */}
+        <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+          <CardHeader className="pb-2 sm:pb-4">
+            <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+              <span>🖨️</span> Impression par Formation (Tout)
+            </CardTitle>
+            <CardDescription className="text-xs sm:text-sm">
+              Imprimer toutes les commandes d'une formation spécifique (sans
+              limite de nombre).
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {Object.entries(FORMATION_CONFIG).map(([fmt, config]) => {
+                const count = formationStats[fmt] || 0;
+                if (count === 0) return null; // Hide if no orders
+
+                return (
+                  <Button
+                    key={fmt}
+                    variant="outline"
+                    className={`h-auto py-3 px-4 justify-start gap-3 border ${config.border} hover:bg-slate-50`}
+                    onClick={() => {
+                      const ordersToPrint = orders.filter(
+                        (o) => (o.metadata.formation || "Inconnu") === fmt,
+                      );
+                      if (
+                        window.confirm(
+                          `Imprimer ${ordersToPrint.length} étiquettes pour ${fmt} ?`,
+                        )
+                      ) {
+                        printLabels(ordersToPrint);
+                      }
+                    }}
+                  >
+                    {config.icon ? (
+                      <img
+                        src={config.icon}
+                        alt=""
+                        className="w-5 h-5 object-contain"
+                      />
+                    ) : (
+                      <span className="text-lg">📚</span>
+                    )}
+                    <div className="flex flex-col items-start">
+                      <span className={`font-semibold ${config.text}`}>
+                        {fmt.replace("BUT ", "")}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {count} commande{count > 1 ? "s" : ""}
+                      </span>
+                    </div>
+                  </Button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* ORDERS Section */}
         <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
           <CardHeader className="pb-2 sm:pb-4">
