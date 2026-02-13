@@ -152,11 +152,15 @@ function OrderCard({
   toggleStatus,
   onDelete,
   onPrint,
+  isSelected,
+  onToggleSelection,
 }: {
   order: Order;
   toggleStatus: (id: string, status: string) => void;
   onDelete: (id: string) => void;
   onPrint: (order: Order) => void;
+  isSelected?: boolean;
+  onToggleSelection?: (id: string) => void;
 }) {
   const getMeta = (key: string, altKey?: string) =>
     order.metadata[key] || (altKey ? order.metadata[altKey] : undefined);
@@ -208,6 +212,23 @@ function OrderCard({
         }`}
       >
         <div className="flex items-center gap-2">
+          {onToggleSelection && (
+            <div
+              className="mr-1 flex items-center justify-center p-1 rounded hover:bg-white/20 cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleSelection(order.id);
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={() => {}} // Handled by div click
+                className="w-5 h-5 rounded border-white/50 text-pink-600 focus:ring-pink-500 cursor-pointer accent-white"
+                style={{ width: "20px", height: "20px" }}
+              />
+            </div>
+          )}
           <span className="text-white text-lg">{tulipEmoji}</span>
           <span className="text-white font-semibold text-sm">
             {deliveryStatus === "delivered" ? "✓ Livrée" : "⏳ À faire"}
@@ -340,7 +361,24 @@ export default function Admin() {
     new Set(),
   );
   const [viewMode, setViewMode] = useState<"grouped" | "flat">("grouped");
+  const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+
+  const toggleSelection = (orderId: string) => {
+    setSelectedOrders((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(orderId)) {
+        newSet.delete(orderId);
+      } else {
+        newSet.add(orderId);
+      }
+      return newSet;
+    });
+  };
+
+  const clearSelection = () => {
+    setSelectedOrders(new Set());
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1819,6 +1857,8 @@ export default function Admin() {
                                       toggleStatus={toggleStatus}
                                       onDelete={(id) => deleteOrder(id)}
                                       onPrint={(order) => printLabels(order)}
+                                      isSelected={selectedOrders.has(order.id)}
+                                      onToggleSelection={toggleSelection}
                                     />
                                   ))}
                                 </div>
@@ -1835,6 +1875,8 @@ export default function Admin() {
                           toggleStatus={toggleStatus}
                           onDelete={(id) => deleteOrder(id)}
                           onPrint={(order) => printLabels(order)}
+                          isSelected={selectedOrders.has(order.id)}
+                          onToggleSelection={toggleSelection}
                         />
                       ))}
                 </div>
@@ -1945,6 +1987,7 @@ export default function Admin() {
                                   <Table>
                                     <TableHeader>
                                       <TableRow className="bg-slate-50/50">
+                                        <TableHead className="w-[40px]"></TableHead>
                                         <TableHead className="w-[100px] font-semibold">
                                           Statut
                                         </TableHead>
@@ -2033,6 +2076,24 @@ export default function Admin() {
                                                 : "hover:bg-slate-50/50"
                                             }`}
                                           >
+                                            <TableCell>
+                                              <div
+                                                className="flex items-center justify-center p-2 cursor-pointer"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  toggleSelection(order.id);
+                                                }}
+                                              >
+                                                <input
+                                                  type="checkbox"
+                                                  checked={selectedOrders.has(
+                                                    order.id,
+                                                  )}
+                                                  onChange={() => {}}
+                                                  className="w-4 h-4 rounded border-gray-300 text-pink-600 focus:ring-pink-500 cursor-pointer"
+                                                />
+                                              </div>
+                                            </TableCell>
                                             <TableCell>
                                               <Badge
                                                 variant={
@@ -2196,6 +2257,7 @@ export default function Admin() {
                       <Table>
                         <TableHeader>
                           <TableRow className="bg-slate-50/50">
+                            <TableHead className="w-[40px]"></TableHead>
                             <TableHead className="w-[100px] font-semibold">
                               Statut
                             </TableHead>
@@ -2275,6 +2337,22 @@ export default function Admin() {
                                     : "hover:bg-slate-50/50"
                                 }`}
                               >
+                                <TableCell>
+                                  <div
+                                    className="flex items-center justify-center p-2 cursor-pointer"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleSelection(order.id);
+                                    }}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedOrders.has(order.id)}
+                                      onChange={() => {}}
+                                      className="w-4 h-4 rounded border-gray-300 text-pink-600 focus:ring-pink-500 cursor-pointer"
+                                    />
+                                  </div>
+                                </TableCell>
                                 <TableCell>
                                   <Badge
                                     variant={
@@ -2435,6 +2513,42 @@ export default function Admin() {
             )}
           </CardContent>
         </Card>
+
+        {/* Floating Action Bar for Batch Selection */}
+        {selectedOrders.size > 0 && (
+          <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-md px-4">
+            <div className="bg-gray-900/90 backdrop-blur-md text-white px-6 py-4 rounded-2xl shadow-2xl border border-white/10 flex items-center justify-between gap-4 animate-in slide-in-from-bottom-5 fade-in duration-300">
+              <div className="flex flex-col">
+                <span className="font-bold text-lg">{selectedOrders.size}</span>
+                <span className="text-[10px] uppercase tracking-wider text-gray-400">
+                  Sélectionné{selectedOrders.size > 1 ? "s" : ""}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-300 hover:text-white hover:bg-white/10"
+                  onClick={clearSelection}
+                >
+                  Annuler
+                </Button>
+                <Button
+                  size="sm"
+                  className="bg-white text-gray-900 hover:bg-gray-200 font-semibold shadow-lg"
+                  onClick={() => {
+                    const selected = orders.filter((o) =>
+                      selectedOrders.has(o.id),
+                    );
+                    printLabels(selected);
+                  }}
+                >
+                  🖨️ Imprimer
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
